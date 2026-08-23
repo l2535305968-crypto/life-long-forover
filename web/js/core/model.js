@@ -44,7 +44,7 @@ export function newSession(opts = {}) {
       stage: STAGE_ORDER[0],
       askedInStage: 0,        // 当前阶段已经问了几条
       warmTurns: 0,           // 累计的"实质回答"轮数，越高越可以碰敏感话题
-      recentRefuse: 0,        // 距离上一次拒绝经过的轮数，敏感话题要看它
+      recentRefuse: 0,        // 距离上一次拒绝经过的轮数（不是拒绝次数），0=刚拒绝过，越大越敢碰敏感话题
       askedQuestionIds: [],   // 问过的问题 id（含 followUp 的 id）
       refusedTopics: [],      // 老人拒绝过的话题 id
       coveredTopics: []       // 已覆盖的主题 id（大致去重用）

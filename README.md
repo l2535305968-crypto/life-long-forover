@@ -53,9 +53,14 @@ docs/             计划、需求、方法论、隐私、SDK 接入
 
 ```
 node test/run-all.mjs
+# 或 npm test
 ```
 
-覆盖：话术库/文风/方言三份数据自检、意图识别、访谈引擎行为（拒绝/沉默/重复/敏感话题分寸/不查户口）、传记文风 lint、加密往返。
+覆盖：话术库/文风/方言三份数据自检、意图识别、访谈引擎行为（拒绝/沉默/重复/敏感话题分寸/不查户口）、传记文风 lint、加密往返、SDK 接口、语音代理链路。
+
+> 自动化测试不碰真实 AI / 语音服务，无 Key 也能全绿。需要真实服务联调时单独跑：
+> `node test/ai-live-check.mjs`（DeepSeek）、`node test/prompt-warmth-check.mjs`（DeepSeek 文风）、
+> `node test/xfyun-asr-check.mjs` / `node test/xfyun-speech-check.mjs <wav>`（讯飞识别）。
 
 ## 隐私（不是口号，是代码）
 

@@ -78,13 +78,15 @@ function ensureMeta(session) {
 // ---------- 分寸：敏感话题上限 ----------
 export function sensitivityCeiling(session) {
   const w = session.interview.warmTurns || 0;
-  const rr = session.interview.recentRefuse || 0;
+  // 注意：recentRefuse 这个字段名有点误导，它实际存的是「距离上一次拒绝过了几轮」，
+  // 不是拒绝次数。刚拒绝时（=0）值最小，越往后值越大，越大才越敢碰敏感话题。
+  const turnsSinceRefuse = session.interview.recentRefuse || 0;
   let c = 0;
   if (w >= 3) c = 1;
   if (w >= 8) c = 2;
   if (w >= 14) c = 3;
-  // 刚被拒绝过，先别往深里问。
-  if (rr < 2) c = Math.min(c, 1);
+  // 刚被拒绝过（距上次拒绝不足 2 轮），先别往深里问。
+  if (turnsSinceRefuse < 2) c = Math.min(c, 1);
   return c;
 }
 
@@ -286,6 +288,8 @@ export function respond(session, text, { audioId } = {}) {
   const rng = rngFor(session);
   const intent = classify(text);
 
+  // 这一轮没说拒绝，就代表「距上次拒绝又远了一轮」，值 +1 拉开距离。
+  // （拒绝时会在 markRefusedTopic 里把它清零，重新开始累计。）
   if (intent !== INTENT.REFUSE) {
     session.interview.recentRefuse = (session.interview.recentRefuse || 0) + 1;
   }

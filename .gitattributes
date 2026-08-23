@@ -1,0 +1,44 @@
+# 统一换行符与文本编码，避免 Windows/Mac/Linux 协作时的 CRLF 噪声。
+# `text=auto` 让 git 按文件内容自动判断；下面明确指定代码文件一律 LF。
+
+* text=auto
+
+# JS / ESM 一律 LF（项目核心是零依赖 ESM）
+*.js  text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+
+# 文档与配置
+*.md   text eol=lf
+*.txt  text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+
+# 安卓 / Gradle
+*.kt  text eol=lf
+*.kts text eol=lf
+*.xml text eol=lf
+
+# 网页
+*.css  text eol=lf
+*.html text eol=lf
+*.webmanifest text eol=lf
+
+# 脚本（Windows 下偶发 UTF-8 BOM，用 text 归一）
+*.m   text eol=lf
+*.py  text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+
+# 二进制不做换行转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.wav  binary
+*.mp3  binary
+*.mp4  binary
+*.webp binary
+*.ico  binary
+*.sox  binary
