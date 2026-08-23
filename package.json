@@ -1,0 +1,11 @@
+{
+  "name": "renshengzhishu",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "人生之书：让 AI 以晚辈身份陪老人聊天，为普通人写口述史传记",
+  "scripts": {
+    "start": "node server/server.mjs",
+    "test": "node test/run-all.mjs"
+  }
+}

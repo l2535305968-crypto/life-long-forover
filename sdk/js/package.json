@@ -1,0 +1,15 @@
+{
+  "name": "@renshengzhishu/sdk",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "《人生之书》客户端 SDK：访谈引擎、AI 对话、传记、时间线、语音识别、加密导出",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "client.mjs",
+    "session.mjs",
+    "crypto.mjs"
+  ]
+}

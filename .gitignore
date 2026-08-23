@@ -1,0 +1,26 @@
+# 忽略本机密钥与环境产物
+
+.env
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# 本地 conda 环境与下载缓存（很大，不进版本库）
+.conda-envs/
+.conda-pkgs/
+.tmp/
+.pip-cache/
+.venv-test/
+
+# Qwen3-TTS 设计出的音色锚点（运行时生成）
+tools/voice/
+
+# 项目本地运行时（sox、模型缓存）
+.runtime/
+
+# 方言 ASR 训练标签（wav.scp 指向本机数据集，不进库）
+tools/asr-data/
+
+# Python 字节码缓存
+tools/__pycache__/

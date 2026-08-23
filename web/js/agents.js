@@ -1,0 +1,147 @@
+// agents.js — 本地智能体插件（管理 + 编译 + 人设文案）
+//
+// 智能体只在用户自己的设备上运行，数据存 localStorage，不上传。
+// 两种形态：
+//   1. prompt 人设配置：追加/覆盖给 DeepSeek 的系统提示词，仍走 /api/chat。
+//   2. script 本地脚本：在页面里运行。脚本源码通过 new Function 求值，
+//      需返回一个对象 { name?, reply(ctx) }。reply 返回非空字符串即作为 AI 回话；
+//      返回 null / undefined / 空串则回落到默认 AI 或引擎。
+//
+// 脚本 ctx 由调用方（app.js）注入：
+//   ctx.elderText    老人刚说的话
+//   ctx.engineReply  引擎给出的确定性回话
+//   ctx.engineQuestion 引擎挑中的问题文本（可能为 null）
+//   ctx.history      最近对话 [{ role: 'user'|'assistant', text }]
+//   ctx.callChat     (messages, opts) => Promise<string>  —— 可复用 /api/chat
+
+const LS_AGENTS = 'rss.agents.v1';
+const LS_ACTIVE = 'rss.activeAgent.v1';
+
+function readAll() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(LS_AGENTS) || '[]');
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeAll(list) {
+  localStorage.setItem(LS_AGENTS, JSON.stringify(list));
+}
+
+function makeId() {
+  return 'ag_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+export function listAgents() {
+  return readAll();
+}
+
+export function getActiveAgentId() {
+  try {
+    return localStorage.getItem(LS_ACTIVE) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function setActiveAgentId(id) {
+  localStorage.setItem(LS_ACTIVE, id || '');
+}
+
+// 取当前激活智能体。脚本形态会做一次编译，失败时返回 null（不影响默认流程）。
+export function getActiveAgent() {
+  const id = getActiveAgentId();
+  if (!id) return null;
+  const a = readAll().find((x) => x.id === id);
+  if (!a) return null;
+  if (a.kind === 'script') {
+    return compileScript(a);
+  }
+  return a;
+}
+
+// 添加智能体。参数：{ name, kind: 'prompt'|'script', content }。校验失败抛错。
+export function addAgent({ name, kind, content }) {
+  const cleanName = String(name || '').trim();
+  if (!cleanName) throw new Error('给智能体起个名字');
+
+  const a = { id: makeId(), name: cleanName, kind: kind === 'script' ? 'script' : 'prompt' };
+
+  if (a.kind === 'script') {
+    if (!String(content || '').trim()) throw new Error('脚本内容不能为空');
+    a.source = String(content);
+    // 立即编译验证；失败则不让加入。
+    const compiled = compileScript(a);
+    if (!compiled || typeof compiled.reply !== 'function') {
+      throw new Error('脚本要 return 一个带 reply(ctx) 函数的对象');
+    }
+  } else {
+    // prompt 形态：允许直接写一段提示词，或写 JSON {system, model?, temperature?}
+    let cfg = content;
+    if (typeof content === 'string') {
+      const t = content.trim();
+      if (t.startsWith('{')) {
+        try {
+          cfg = JSON.parse(t);
+        } catch {
+          throw new Error('JSON 解析失败，检查引号和逗号');
+        }
+      } else {
+        cfg = { system: t };
+      }
+    }
+    if (!cfg || typeof cfg !== 'object' || !String(cfg.system || '').trim()) {
+      throw new Error('人设需要一个 system 字段（提示词）');
+    }
+    a.system = String(cfg.system).trim();
+    if (cfg.model) a.model = String(cfg.model);
+    if (typeof cfg.temperature === 'number') a.temperature = cfg.temperature;
+  }
+
+  const list = readAll();
+  list.push(a);
+  writeAll(list);
+  if (!getActiveAgentId()) setActiveAgentId(a.id); // 第一个加入的自动激活
+  return a;
+}
+
+export function removeAgent(id) {
+  writeAll(readAll().filter((x) => x.id !== id));
+  scriptCache.delete(id);
+  if (getActiveAgentId() === id) setActiveAgentId('');
+}
+
+// 已编译脚本的缓存：让脚本闭包状态能跨轮次保持（更像"插件"）。
+const scriptCache = new Map();
+
+// 编译脚本智能体。返回 { name, reply } 或 null。
+export function compileScript(a) {
+  if (!a) return null;
+  const cached = scriptCache.get(a.id);
+  if (cached) return cached;
+  const src = String(a.source || '').trim();
+  if (!src) return null;
+  try {
+    // 源码形如：return { name: '...', reply: async (ctx) => '...' }
+    const factory = new Function(src);
+    const obj = factory();
+    if (obj && typeof obj === 'object' && typeof obj.reply === 'function') {
+      const compiled = { name: obj.name || a.name, reply: obj.reply };
+      scriptCache.set(a.id, compiled);
+      return compiled;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// 生成追加到 system 提示词末尾的人设片段。
+export function personaSystem(agent) {
+  if (!agent || agent.kind === 'script') return '';
+  const s = String(agent.system || '').trim();
+  if (!s) return '';
+  return '\n\n【当前智能体 · ' + (agent.name || '自定义') + '】\n' + s;
+}

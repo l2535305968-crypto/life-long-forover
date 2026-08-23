@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2E7D5A">
+  <meta name="description" content="陪老人聊天，把他的话整理成一本属于他自己的书。故事只存在这台设备上。">
+  <title>人生之书</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="人生之书">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <!-- 统一的内联 SVG 图标（单一笔画风格，不引外部库） -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+    </symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <polyline points="12 6 12 12 16 14"></polyline>
+    </symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+      <polyline points="14 2 14 8 20 8"></polyline>
+      <line x1="16" y1="13" x2="8" y2="13"></line>
+      <line x1="16" y1="17" x2="8" y2="17"></line>
+    </symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+      <line x1="12" y1="19" x2="12" y2="23"></line>
+      <line x1="8" y1="23" x2="16" y2="23"></line>
+    </symbol>
+    <symbol id="i-speaker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+    </symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      <line x1="10" y1="11" x2="10" y2="17"></line>
+      <line x1="14" y1="11" x2="14" y2="17"></line>
+    </symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+      <polyline points="7 10 12 15 17 10"></polyline>
+      <line x1="12" y1="15" x2="12" y2="3"></line>
+    </symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+      <polyline points="17 8 12 3 7 8"></polyline>
+      <line x1="12" y1="3" x2="12" y2="15"></line>
+    </symbol>
+    <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h9"></path>
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+    </symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+    </symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+      <line x1="12" y1="9" x2="12" y2="13"></line>
+      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </symbol>
+    <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+      <polyline points="21 15 16 10 5 21"></polyline>
+    </symbol>
+    <symbol id="i-chevron-l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"></polyline>
+    </symbol>
+    <symbol id="i-chevron-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+      <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M10 13h.01M14 13h.01M18 13h.01M8 17h8"></path>
+    </symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="7" width="16" height="13" rx="3"></rect>
+      <path d="M12 7V4"></path>
+      <circle cx="12" cy="3" r="1"></circle>
+      <path d="M9 12h.01M15 12h.01"></path>
+      <line x1="9" y1="16" x2="15" y2="16"></line>
+    </symbol>
+  </svg>
+
+  <header class="appbar">
+    <button id="btn-menu" class="icon-btn appbar__menu" type="button"
+      aria-label="打开菜单和设置" aria-haspopup="true" aria-expanded="false" aria-controls="drawer">
+      <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-menu"></use></svg>
+    </button>
+    <span class="brand">
+      <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-book"></use></svg>
+      <span class="brand__name">人生之书</span>
+    </span>
+    <span id="appbar-book" class="appbar__book" hidden></span>
+  </header>
+
+  <main id="main">
+    <!-- 书架 -->
+    <section id="view-shelf" class="view">
+      <div class="view__head">
+        <h1 class="view__title" tabindex="-1">书架</h1>
+        <p class="lede">这儿放着给家里老人写的书。都在这台设备上，不上传。</p>
+      </div>
+      <div id="shelf-empty" class="empty" hidden>
+        <svg class="ic empty__icon" aria-hidden="true" focusable="false"><use href="#i-book"></use></svg>
+        <p class="empty__text">还没有书。点下面的大按钮，给老人开一本。</p>
+      </div>
+      <div id="book-list" class="book-list" aria-label="已有的书"></div>
+      <button id="btn-new-book" class="btn btn--primary btn--block" type="button">
+        <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-plus"></use></svg>
+        新建一本书
+      </button>
+    </section>
+
+    <!-- 访谈（老人优先：照片背景 + 中央语音键 + 最新一句，历史折叠） -->
+    <section id="view-interview" class="view view--interview" hidden>
+      <!-- 照片作为背景（有照片时显示，可左右滑动翻页） -->
+      <div id="interview-photo" class="interview-photo" hidden>
+        <div id="interview-photo-stage" class="interview-photo__stage"></div>
+        <div class="interview-photo__veil" aria-hidden="true"></div>
+        <span id="interview-photo-count" class="interview-photo__count" role="status" aria-live="polite"></span>
+      </div>
+
+      <div class="interview-main">
+        <h1 class="view__title view__title--interview" id="title-interview" tabindex="-1">访谈</h1>
+
+        <p id="current-line" class="current-line" aria-live="polite"></p>
+
+        <div id="chat-stream" class="chat" aria-live="polite" aria-relevant="additions" aria-label="和老人的对话" hidden></div>
+
+        <div class="voice-stage">
+          <button id="btn-voice" class="btn-voice btn-voice--hero" type="button" aria-label="点一下开始说话" aria-pressed="false">
+            <span class="btn-voice__ripple" aria-hidden="true"></span>
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-mic"></use></svg>
+          </button>
+          <p id="voice-hint" class="voice-stage__hint">点一下：开始 / 暂停　·　长按：按住说，松手送出</p>
+          <p id="asr-interim" class="asr-interim" role="status" aria-live="polite" hidden></p>
+          <p id="composer-status" class="composer-status" role="status" aria-live="polite"></p>
+          <p id="asr-fallback-note" class="field__note" hidden>这台手机或这个浏览器听不了语音，用输入法自带的语音听写，或请家人帮着打字。</p>
+        </div>
+
+        <div class="composer">
+          <div id="text-row" class="text-row" hidden>
+            <label class="sr-only" for="elder-input">老人说的话，或家人替老人敲的字</label>
+            <textarea id="elder-input" class="input input--chat" rows="3" placeholder="在这儿写，或请家人帮着敲字"></textarea>
+            <button id="btn-send" class="btn btn--primary btn--block" type="button">
+              <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"></use></svg>
+              发送
+            </button>
+          </div>
+          <div class="composer__secondary">
+            <button id="btn-records" class="btn btn--ghost btn--sm" type="button" aria-expanded="false">看记录</button>
+            <button id="btn-record" class="btn btn--secondary btn--sm" type="button" aria-label="按住录音，松开保存原声">
+              <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-mic"></use></svg>
+              <span id="record-label">留原声</span>
+            </button>
+            <button id="btn-end" class="btn btn--secondary btn--sm" type="button">结束本次</button>
+          </div>
+          <p id="rec-unsupported" class="field__note" hidden>这台设备或网络环境录不了音（要 https 或本机地址）。用输入法的语音听写就行。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 照片 -->
+    <section id="view-photos" class="view" hidden>
+      <div class="view__head">
+        <h1 class="view__title" tabindex="-1">照片</h1>
+        <p class="lede">老照片、老物件，放进这本书里，像翻相册一样翻着看。</p>
+      </div>
+      <div class="btn-row">
+        <button id="btn-add-photos" class="btn btn--primary" type="button">
+          <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-image"></use></svg>
+          插入照片
+        </button>
+      </div>
+      <input id="photo-input" type="file" accept="image/*" multiple hidden>
+      <div id="photos-empty" class="empty" hidden>
+        <svg class="ic empty__icon" aria-hidden="true" focusable="false"><use href="#i-image"></use></svg>
+        <p class="empty__text">这本书还没放照片。点上面，把老照片放进这本书里。</p>
+      </div>
+      <div id="photos-grid" class="photos-grid" aria-label="这本书的照片"></div>
+    </section>
+
+    <!-- 时间线 -->
+    <section id="view-timeline" class="view" hidden>
+      <div class="view__head">
+        <h1 class="view__title" tabindex="-1">时间线</h1>
+        <p class="lede">聊过的事，按人生阶段归拢。哪个阶段还没聊过，时间线里就不会有它——不猜、不补。</p>
+      </div>
+      <div id="timeline-empty" class="empty" hidden>
+        <svg class="ic empty__icon" aria-hidden="true" focusable="false"><use href="#i-clock"></use></svg>
+        <p class="empty__text">还没聊出多少故事。回到访谈，陪老人慢慢说，每说一句都会记下来。</p>
+        <button id="btn-timeline-go" class="btn btn--primary" type="button">去访谈</button>
+      </div>
+      <div id="timeline-list" class="timeline-list"></div>
+    </section>
+
+    <!-- 传记 -->
+    <section id="view-bio" class="view" hidden>
+      <div class="view__head">
+        <h1 class="view__title" tabindex="-1">传记</h1>
+        <p class="lede">把聊过的话，整理成一本能读的书。AI 只写老人说过的内容。</p>
+      </div>
+      <div class="btn-row">
+        <button id="btn-gen" class="btn btn--primary" type="button">
+          <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-pen"></use></svg>
+          生成传记
+        </button>
+      </div>
+      <p id="bio-note" class="field__note" role="status" aria-live="polite"></p>
+      <article id="bio-text" class="bio-panel" hidden></article>
+      <div id="bio-lint" hidden></div>
+      <div id="bio-empty" class="empty" hidden>
+        <svg class="ic empty__icon" aria-hidden="true" focusable="false"><use href="#i-doc"></use></svg>
+        <p class="empty__text">这本书还没写过传记。点"生成传记"，会用已经记下的故事来写。</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>故事只存在这台设备上，不上传。导出必须设口令。</p>
+  </footer>
+
+  <!-- 左侧抽屉：导航 + 设置 -->
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="drawer" class="drawer" aria-label="菜单与设置" aria-hidden="true" inert>
+    <div class="drawer__head">
+      <span class="drawer__title">菜单与设置</span>
+      <button id="btn-drawer-close" class="icon-btn" type="button" aria-label="关闭菜单">
+        <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-close"></use></svg>
+      </button>
+    </div>
+
+    <div class="drawer__body">
+      <div class="drawer__status">
+        <span id="ai-status" class="chip" data-state="checking" role="status">正在看 AI 在不在…</span>
+      </div>
+      <section class="drawer__section">
+        <h2 class="drawer__label">去往</h2>
+        <nav class="drawer-nav" aria-label="主要功能">
+          <button class="drawer-nav__item" data-view="shelf" type="button">
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-book"></use></svg>
+            <span>书架</span>
+          </button>
+          <button class="drawer-nav__item" data-view="interview" type="button">
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"></use></svg>
+            <span>访谈</span>
+          </button>
+          <button class="drawer-nav__item" data-view="photos" type="button">
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-image"></use></svg>
+            <span>照片</span>
+          </button>
+          <button class="drawer-nav__item" data-view="timeline" type="button">
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-clock"></use></svg>
+            <span>时间线</span>
+          </button>
+          <button class="drawer-nav__item" data-view="bio" type="button">
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-doc"></use></svg>
+            <span>传记</span>
+          </button>
+        </nav>
+      </section>
+
+      <section class="drawer__section">
+        <h2 class="drawer__label">输入</h2>
+        <label class="switch-row">
+          <span class="switch-row__text">
+            <strong>打字输入</strong>
+            <small>默认只用语音。打开后，访谈页会出现手写框，可帮老人改字。</small>
+          </span>
+          <span class="switch">
+            <input id="set-typing" type="checkbox" role="switch" aria-label="打字输入">
+            <span class="switch__track" aria-hidden="true"></span>
+          </span>
+        </label>
+      </section>
+
+      <section class="drawer__section">
+        <h2 class="drawer__label">方言</h2>
+        <select id="set-dialect" class="input" aria-label="方言设置"></select>
+        <p class="drawer__hint">影响问话口音与语音听写，选中后立即生效。</p>
+      </section>
+
+      <section class="drawer__section">
+        <h2 class="drawer__label">智能体</h2>
+        <div id="agent-list" class="agent-list"></div>
+        <button id="btn-add-agent" class="btn btn--secondary btn--sm btn--block" type="button">
+          <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-bot"></use></svg>
+          添加智能体
+        </button>
+        <p class="drawer__hint">可本地加入人设配置或自写脚本。只在你这台设备上运行，不上传。</p>
+      </section>
+
+      <section class="drawer__section" id="drawer-book-section" hidden>
+        <h2 class="drawer__label">这本书</h2>
+        <div class="grant-row">
+          <span class="grant-row__label">家人授权码</span>
+          <code id="grant-code" class="grant-code">—</code>
+          <button id="btn-copy-grant" class="btn btn--secondary btn--sm" type="button">
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-copy"></use></svg>
+            复制
+          </button>
+        </div>
+        <div class="drawer__actions">
+          <button id="btn-export" class="btn btn--secondary btn--sm" type="button">
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-lock"></use></svg>
+            导出加密
+          </button>
+          <button id="btn-import" class="btn btn--secondary btn--sm" type="button">
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-upload"></use></svg>
+            导入
+          </button>
+          <button id="btn-export-talk" class="btn btn--secondary btn--sm" type="button">
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-download"></use></svg>
+            导出对话记录
+          </button>
+          <button id="btn-export-log" class="btn btn--secondary btn--sm" type="button">
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-download"></use></svg>
+            导出日志
+          </button>
+        </div>
+        <button id="btn-delete" class="btn btn--danger btn--sm btn--block" type="button">
+          <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-trash"></use></svg>
+          删除这本书
+        </button>
+      </section>
+
+      <p class="drawer__privacy">故事只存在这台设备上，不上传。导出必须设口令。</p>
+    </div>
+  </aside>
+
+  <!-- 新建书 -->
+  <dialog id="dlg-new" aria-labelledby="dlg-new-title">
+    <form id="form-new" class="dialog__body" novalidate>
+      <h2 id="dlg-new-title" class="dialog__title">给老人开一本新书</h2>
+      <p class="dialog__sub">先起个名字，之后随时能改。</p>
+      <div class="field">
+        <label for="new-name">怎么称呼这本书的主人</label>
+        <input class="input" id="new-name" name="name" type="text" maxlength="12" autocomplete="off"
+          placeholder="比如：姥爷、奶奶、老爸" aria-required="true" aria-describedby="new-name-note" required>
+        <p class="field__note" id="new-name-note" data-helper="这是书的名字，家里人认就行，不拿去问老人。">这是书的名字，家里人认就行，不拿去问老人。</p>
+      </div>
+      <div class="field">
+        <label for="new-dialect">老人讲话最顺口的方言</label>
+        <select class="input" id="new-dialect" name="dialect" aria-describedby="new-dialect-note">
+          <!-- 选项由 app.js 从 dialects.packs 填入 -->
+        </select>
+        <p class="field__note" id="new-dialect-note" data-helper="选上之后，问话会更贴近老人的口音。">选上之后，问话会更贴近老人的口音。</p>
+      </div>
+      <div class="dialog__actions">
+        <button type="button" class="btn btn--secondary" data-close>先不建</button>
+        <button type="submit" class="btn btn--primary" id="btn-new-go">开始聊天</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 导出加密 -->
+  <dialog id="dlg-export" aria-labelledby="dlg-export-title">
+    <form id="form-export" class="dialog__body" novalidate>
+      <h2 id="dlg-export-title" class="dialog__title">把这本书加密导出</h2>
+      <p class="dialog__sub">设一个口令，把整本书锁进一个 .txt 文件。家人拿到文件和口令才能打开。</p>
+      <div class="field">
+        <label for="export-pw">口令（至少 6 位）</label>
+        <input class="input" id="export-pw" type="password" autocomplete="new-password"
+          aria-required="true" aria-describedby="export-pw-note" required minlength="6">
+        <p class="field__note" id="export-pw-note" data-helper="口令忘了就打不开，这份文件也不会发出去。">口令忘了就打不开，这份文件也不会发出去。</p>
+      </div>
+      <div class="field">
+        <label for="export-pw2">再输一遍口令</label>
+        <input class="input" id="export-pw2" type="password" autocomplete="new-password"
+          aria-required="true" aria-describedby="export-pw2-note" required>
+        <p class="field__note" id="export-pw2-note" data-helper=""></p>
+      </div>
+      <div class="dialog__actions">
+        <button type="button" class="btn btn--secondary" data-close>取消</button>
+        <button type="submit" class="btn btn--primary" id="btn-export-go">导出加密文件</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 导入 -->
+  <dialog id="dlg-import" aria-labelledby="dlg-import-title">
+    <form id="form-import" class="dialog__body" novalidate>
+      <h2 id="dlg-import-title" class="dialog__title">把一本书导进来</h2>
+      <p class="dialog__sub">选之前导出的加密文件，再用当时设的口令解开。</p>
+      <div class="field">
+        <label for="file-import">加密文件（.txt）</label>
+        <input class="input input--file" id="file-import" type="file" accept=".txt,text/plain"
+          aria-required="true" aria-describedby="file-import-note" required>
+        <p class="field__note" id="file-import-note" data-helper="还没选文件">还没选文件</p>
+      </div>
+      <div class="field">
+        <label for="import-pw">口令</label>
+        <input class="input" id="import-pw" type="password" autocomplete="off"
+          aria-required="true" aria-describedby="import-pw-note" required>
+        <p class="field__note" id="import-pw-note" data-helper="导出时设的那个口令。">导出时设的那个口令。</p>
+      </div>
+      <div class="dialog__actions">
+        <button type="button" class="btn btn--secondary" data-close>取消</button>
+        <button type="submit" class="btn btn--primary" id="btn-import-go">导入这本书</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 删除确认 -->
+  <dialog id="dlg-delete" aria-labelledby="dlg-delete-title">
+    <div class="dialog__body">
+      <h2 id="dlg-delete-title" class="dialog__title">真的要删掉这本书吗？</h2>
+      <p class="dialog__sub">《<span id="delete-name"></span>》里的故事和原声会永远消失，删了找不回来。想留个底，可以先加密导出。</p>
+      <div class="dialog__actions">
+        <button type="button" class="btn btn--secondary" data-close>先导出再说</button>
+        <button type="button" class="btn btn--danger" id="btn-delete-go">确认删除</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 删除照片确认 -->
+  <dialog id="dlg-photo-delete" aria-labelledby="dlg-photo-delete-title">
+    <div class="dialog__body">
+      <h2 id="dlg-photo-delete-title" class="dialog__title">删掉这张照片？</h2>
+      <p class="dialog__sub">删了以后，这张照片就从这本书里消失了，找不回来。</p>
+      <div class="dialog__actions">
+        <button type="button" class="btn btn--secondary" data-close>留着</button>
+        <button type="button" class="btn btn--danger" id="btn-photo-delete-go">确认删除</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 添加智能体 -->
+  <dialog id="dlg-agent" aria-labelledby="dlg-agent-title">
+    <form id="form-agent" class="dialog__body" novalidate>
+      <h2 id="dlg-agent-title" class="dialog__title">添加智能体</h2>
+      <p class="dialog__sub">智能体只在你这台设备上运行，不会上传。</p>
+      <div class="field">
+        <label for="agent-name">名字</label>
+        <input class="input" id="agent-name" name="agent-name" type="text" maxlength="20" autocomplete="off"
+          placeholder="比如：温柔晚辈、讲故事的人" aria-required="true" required>
+        <p class="field__note" id="agent-name-note" data-helper=""></p>
+      </div>
+      <div class="field">
+        <label for="agent-kind">类型</label>
+        <select class="input" id="agent-kind" aria-describedby="agent-kind-note">
+          <option value="prompt">人设配置（提示词 JSON）</option>
+          <option value="script">本地脚本（JS）</option>
+        </select>
+        <p class="field__note" id="agent-kind-note" data-helper="人设：只改 AI 的语气与角色；脚本：在页面里运行，可完全接管回话。"></p>
+      </div>
+      <div class="field">
+        <label for="agent-content">内容</label>
+        <textarea class="input input--chat" id="agent-content" name="agent-content" rows="7"
+          placeholder='人设示例：{"system":"你是一位……","temperature":0.85}'></textarea>
+        <p class="field__note" id="agent-content-note"></p>
+      </div>
+      <div class="field">
+        <button type="button" id="btn-agent-file" class="btn btn--secondary btn--sm">从文件选择</button>
+        <input id="agent-file" type="file" accept=".json,.js,.txt" hidden>
+      </div>
+      <div class="dialog__actions">
+        <button type="button" class="btn btn--secondary" data-close>取消</button>
+        <button type="submit" class="btn btn--primary" id="btn-agent-go">加入</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 联网访问《人生之书》服务端 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 录音（语音识别 / 留原声） -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <application />
+</manifest>
