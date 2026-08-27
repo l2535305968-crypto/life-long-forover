@@ -13,10 +13,10 @@
 // 护门：token（RSZ_TTS_TOKEN）放在 Cloudflare 环境变量里，绝不下发浏览器。
 //       Worker 转发时替浏览器补一个 x-tts-token header，服务器校验通过才合成。
 
-// 上游后端地址。云端配置 RSZ_TTS_UPSTREAM 环境变量可覆盖（便于换固定隧道域名）；
-// 未配置时默认用已验证的 cloudflared 快速隧道（同一 Cloudflare 生态，绕开直连公网 IP 被 403）。
+// 上游后端地址。云端生产环境已配置 RSZ_TTS_UPSTREAM = https://tts.xunyiju.com/api/tts
+// （cloudflared 固定隧道），此常量仅作未配置时的兜底。
 // 注意：地址要带 /api/tts 路径前缀（本代理透传全部子路径）。
-const DEFAULT_UPSTREAM = 'https://sustained-revenues-heading-discipline.trycloudflare.com/api/tts';
+const DEFAULT_UPSTREAM = 'https://tts.xunyiju.com/api/tts';
 
 export async function onRequestPost(context) {
   const env = context.env || {};
