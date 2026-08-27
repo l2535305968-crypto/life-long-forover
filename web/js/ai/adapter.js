@@ -2,7 +2,7 @@
 // 唯一跟 /api/chat 打交道的地方。上层（UI）只调用这里的函数，不关心 Key 在哪。
 // Key 永远留在家人的电脑上（server/server.mjs），手机拿不到。
 
-import { interviewSystemPrompt, turnPrompt, biographyPrompts } from './prompt.js';
+import { interviewSystemPrompt, turnPrompt, respondOnlyPrompt, biographyPrompts } from './prompt.js';
 import { buildContext } from '../core/biography.js';
 
 export async function callChat(messages, opts = {}) {
@@ -47,6 +47,19 @@ export async function polishQuestion(session, questionText, extraSystem = '') {
   return questionText;
 }
 
+// 呼吸拍：引擎决定"这轮只接住、不追问"。让 AI 就着老人刚说的话，润色出一句贴心的回应。
+export async function polishPause(session) {
+  const messages = [
+    { role: 'system', content: interviewSystemPrompt(session) },
+    ...historyMessages(session, 16),
+    { role: 'user', content: respondOnlyPrompt(session) }
+  ];
+  const text = await callChat(messages, { temperature: 0.9, maxTokens: 120 });
+  const polished = stripQuotes(text);
+  if (polished && polished.length <= 80) return polished;
+  return text;
+}
+
 // 生成传记正文。只写材料里老人说过的话。
 export async function generateBiography(session) {
   const { system, user } = biographyPrompts(buildContext(session));
@@ -60,7 +73,16 @@ export async function generateBiography(session) {
 // 上层统一入口：引擎先给出"该说什么"，AI 负责"说得好听"。
 // 拒绝 / 沉默 / 重复的软话不需要 AI，直接用引擎的。agentSystem 为可选智能体人设。
 export async function nextAiLine(session, engineResult, { aiEnabled = true, agentSystem = '' } = {}) {
-  if (!engineResult.question || !aiEnabled) return engineResult.reply;
+  if (!aiEnabled) return engineResult.reply;
+  // 呼吸拍：这轮只接住、不追问，让 AI 润色成贴心的回应。
+  if (engineResult.breathe) {
+    try {
+      return await polishPause(session);
+    } catch {
+      return engineResult.reply; // 断网 / 没 Key / 上游出错，退回引擎的兜底共情句。
+    }
+  }
+  if (!engineResult.question) return engineResult.reply;
   try {
     return await polishQuestion(session, engineResult.question.text, agentSystem);
   } catch {

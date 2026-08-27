@@ -197,48 +197,6 @@ h2 { font-size: var(--text-h2); line-height: 1.3; font-weight: 700; }
   color: var(--color-muted);
 }
 
-.tabbar {
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  z-index: var(--z-tabbar);
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  background: var(--color-paper);
-  border-top: 1px solid var(--color-rule);
-  padding-bottom: var(--safe-bottom);
-}
-.tab {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-height: var(--tabbar-h);
-  min-width: 0;
-  padding: var(--space-1) var(--space-1);
-  background: none;
-  border: none;
-  border-radius: 0;
-  color: var(--color-muted);
-  font-family: inherit;
-  font-size: var(--text-meta);
-  line-height: 1.2;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color var(--dur-200) var(--ease-out), background-color var(--dur-200) var(--ease-out);
-}
-.tab .ic { width: 1.75rem; height: 1.75rem; }
-.tab:hover { background: var(--color-paper-2); }
-.tab:active { transform: translateY(1px); }
-.tab[aria-current="page"] { color: var(--color-brick); font-weight: 600; }
-.tab[aria-current="page"]::after {
-  content: "";
-  width: 0.375rem; height: 0.375rem;
-  margin-top: 2px;
-  border-radius: 2px;
-  background: var(--color-amber-deep);
-}
-
 .foot {
   padding: var(--space-6) var(--space-4) var(--space-8);
   text-align: center;
@@ -1107,8 +1065,17 @@ body.no-scroll { overflow: hidden; }
 /* ---- 访谈：中央语音舞台 ---- */
 .view__head--interview { margin-bottom: var(--space-3); }
 
+/* 对话区 + 收起/展开按钮的容器。默认收起只露最新一句，语音键当主角。 */
+.chat-wrap {
+  flex: 1 1 auto;                 /* 撑满 title 与语音键之间的空档，展开/收起按钮稳定贴底 */
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
 .chat {
-  flex: 1 1 auto;
+  flex: 1 1 auto;                 /* 占满 chat-wrap 剩余高度 */
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1120,8 +1087,39 @@ body.no-scroll { overflow: hidden; }
   opacity: 0.92;
 }
 
+/* 收起态：只露最新一句，其余气泡藏起来。这样最新那句永远在最显眼（底部）位置，
+   而不是被从顶部截掉。展开时再全部放出来。 */
+.chat-wrap.is-collapsed .chat > .glass:not(:last-child) { display: none; }
+
+/* 展开/收起小药丸：贴在对话区底缘，可点，够大（≥44px），不抢语音键视线 */
+.chat-toggle {
+  position: absolute;
+  left: 50%;
+  bottom: 0.25rem;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 2.75rem;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-pill);
+  background: var(--color-paper-2);
+  color: var(--color-muted);
+  font-family: inherit;
+  font-size: var(--text-meta);
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.08);
+}
+.chat-toggle .ic { width: 1rem; height: 1rem; }
+.chat-toggle[aria-expanded="true"] .ic { transform: rotate(-90deg); } /* 展开后箭头转向（收起） */
+.chat-toggle[hidden] { display: none; }
+
 .voice-stage {
   flex: 0 0 auto;
+  margin-top: auto;               /* 贴底：语音键落在大拇指舒适区，中间留白当呼吸感 */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1249,31 +1247,6 @@ body.no-scroll { overflow: hidden; }
   margin-bottom: var(--space-2);
   text-align: center;
 }
-
-/* 最新一句：居中大字，老人主要看这里 */
-.current-line {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-size: var(--text-warm);
-  font-weight: 600;
-  line-height: 1.5;
-  overflow-y: auto;
-  overflow-wrap: anywhere;
-  padding: var(--space-4) var(--space-1);
-}
-.current-line:empty::before {
-  content: "点一下下面的话筒，想到哪儿说到哪儿。";
-  color: var(--color-muted);
-  font-weight: 400;
-}
-.current-line[hidden] { display: none; }
-
-/* 打开记录时：让聊天记录占满中间区域 */
-.view--interview.records-open .current-line { flex: 0 0 auto; }
 
 /* 抽屉顶部状态 */
 .drawer__status {

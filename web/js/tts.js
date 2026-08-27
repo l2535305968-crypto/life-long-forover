@@ -14,6 +14,7 @@ let warmProbeState = 'idle'; // idle | probing | done
 let warmCoolUntil = 0;     // 上游失败后冷却，避免每句都撞一次
 let warmAudio = null;      // 当前正在播的暖声音 <audio>
 let nativeSpeaking = false;
+let warmDialect = 'putonghua'; // 当前书的方言，随 /api/tts 下发，让服务端做儿化收敛
 
 // ---------- 暖声音（Qwen3-TTS） ----------
 
@@ -21,6 +22,11 @@ let nativeSpeaking = false;
 export function setWarmEnabled(enabled) {
   warmEnabled = !!enabled;
   warmProbeState = warmEnabled ? 'done' : 'idle';
+}
+
+// 设置当前书的方言，让服务端念出符合场合的儿化/口吻。app.js 在开书/切方言时调用。
+export function setDialect(id) {
+  warmDialect = id || 'putonghua';
 }
 
 // 自己补一次探测（app.js 没跑完 health 时 speak 也能自己判断）。
@@ -49,7 +55,8 @@ async function speakWarm(text, opts = {}) {
     const res = await fetch('/api/tts', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text, rate: opts.rate != null ? opts.rate : 0.95 })
+      // dialect 让服务端按这本书的方言做儿化/口吻收敛（见 server/xfyun-tts.mjs normalizeForDialect）
+      body: JSON.stringify({ text, dialect: warmDialect, rate: opts.rate != null ? opts.rate : 0.95 })
     });
     if (!res.ok) throw new Error('tts http ' + res.status);
     const blob = await res.blob();

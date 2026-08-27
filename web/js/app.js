@@ -16,7 +16,7 @@ import { nextAiLine, generateBiography, callChat } from './ai/adapter.js';
 import { listAgents, getActiveAgentId, setActiveAgentId, addAgent, removeAgent, getActiveAgent, personaSystem } from './agents.js';
 import { saveBook, loadBook, listBooks, deleteBook, importBookText } from './storage.js';
 import { encryptText, decryptText } from './crypto.js';
-import { available as ttsAvailable, anyTts, speaking as ttsSpeakingNow, setWarmEnabled, speak } from './tts.js';
+import { available as ttsAvailable, anyTts, speaking as ttsSpeakingNow, setWarmEnabled, setDialect, speak } from './tts.js';
 import { supported as recorderSupported, startRecording, blobToDataUrl } from './recorder.js';
 import { processImageFile } from './image.js';
 import { createBackground } from './fx/background.js';
@@ -44,7 +44,8 @@ const state = {
   asrRetryTimer: null,
   hasAsr: false,          // /api/health 告知服务端是否配了讯飞 Key
   asrFallbackReason: null, // 'env'（环境不行，可被 health 恢复）| 'runtime'（运行期出错）
-  asrAborted: false       // 手动丢弃本句（讯飞 abort 后仍可能回调 onFinal，用它挡掉）
+  asrAborted: false,      // 手动丢弃本句（讯飞 abort 后仍可能回调 onFinal，用它挡掉）
+  chatExpanded: false     // 对话区是否被用户手动展开（展开后新消息不再自动收）
 };
 
 // ---------- 小工具 ----------
@@ -216,6 +217,12 @@ function speakIt(text, opts = {}) {
   }
 }
 
+// 让暖声音按当前书的方言念（儿化/口吻收敛）。开书、切方言都走这里。
+function syncTtsDialect() {
+  const s = state.current;
+  setDialect((s && s.person && s.person.dialect) || 'putonghua');
+}
+
 // ---------- 按钮 loading 态 ----------
 function setLoading(btn, label) {
   btn.dataset.origHtml = btn.innerHTML;
@@ -357,6 +364,7 @@ async function openBook(id) {
     state.current = s;
     state.pendingAudioId = null;
     state.warmedThisLoad = false;
+    state.chatExpanded = false;   // 每本书新开，对话区都从"收起"开始
     addLog(s, 'open', '打开这本书');
     $('#appbar-book').textContent = (s.person && s.person.name) || '（未起名）';
     $('#appbar-book').hidden = false;
@@ -418,9 +426,13 @@ function wireNewBook() {
 function enterInterview() {
   const s = state.current;
   if (!s) return;
-  $('#title-interview').textContent = s.person.name ? '和' + s.person.name + '聊聊' : '访谈';
+  syncTtsDialect();
+  // 标题只留一个：进了书，顶上 appbar 就显示书名了，这里不再重复放"和XX聊聊"。
+  // 顶栏书名占位，正文标题收起，只留一双眼看得到的大标题（appbar），避免上下两个标题打架。
+  $('#title-interview').hidden = Boolean(s.person && s.person.name);
 
   renderChat(s);
+  refreshChatCollapse();
 
   // 开场：没有对话时才说。opening() 会先暖场，再带出第一个具体问题，
   // 并同步在引擎里种下这个问题（有字段归属），老人第一句话就不会掉进
@@ -467,7 +479,6 @@ function appendMsg(role, text) {
   const chat = $('#chat-stream');
   const wrap = makeGlassBubble({ role, text, replay: role === 'ai' });
   if (role === 'ai') {
-    setCurrentLine(text);
     const rep = wrap.querySelector('.glass__replay');
     if (rep) {
       rep.append(iconNode('speaker'));
@@ -476,12 +487,12 @@ function appendMsg(role, text) {
   }
   chat.append(wrap);
   chat.scrollTop = chat.scrollHeight;
+  refreshChatCollapse();   // 每条新消息进来，都重新看要不要收/展开
 }
 
 function appendWarm(text) {
   const chat = $('#chat-stream');
   if (chat.querySelector('.msg--warm')) return;
-  setCurrentLine(text);
   const wrap = makeGlassBubble({ role: 'warm', text, replay: true });
   wrap.append(el('p', { class: 'glass__meta msg__meta', text: '开场白' }));
   const rep = wrap.querySelector('.glass__replay');
@@ -494,25 +505,60 @@ function appendWarm(text) {
   chat.scrollTop = chat.scrollHeight;
 }
 
-// 最新一句 AI 的话，居中大字显示（老人主要看这里；历史折叠进"看记录"）
-function setCurrentLine(text) {
-  const el = $('#current-line');
-  if (el) el.textContent = text || '';
+// ---------- 对话折叠：语音优先，默认只露最新一句，点一下展开全部 ----------
+function refreshChatCollapse() {
+  const wrap = $('#view-interview').querySelector('.chat-wrap');
+  const btn = $('#btn-chat-toggle');
+  if (!wrap || !btn) return;
+  const n = $$('#chat-stream .glass').length;
+  // 只有一条以上才给"查看/收起"开关；一条都不用收，纯语音开场。
+  const canCollapse = n > 1;
+  btn.hidden = !canCollapse;
+  if (!canCollapse) {
+    wrap.classList.remove('is-collapsed');
+    btn.setAttribute('aria-expanded', 'false');
+    syncChatToggleLabel();
+    return;
+  }
+  // 记忆用户的选择：本会话里手动展开过就不再自动收（否则每句新消息都把它挤回去）。
+  if (!state.chatExpanded) {
+    wrap.classList.add('is-collapsed');
+    btn.setAttribute('aria-expanded', 'false');
+  } else {
+    wrap.classList.remove('is-collapsed');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+  syncChatToggleLabel();
 }
 
-function toggleRecords() {
-  const chat = $('#chat-stream');
-  const open = chat.hidden;
-  chat.hidden = !open;
-  const cur = $('#current-line');
-  if (cur) cur.hidden = open; // 打开记录时收起"最新一句"，让记录占满中间
-  const btn = $('#btn-records');
-  if (btn) {
-    btn.textContent = open ? '收起记录' : '看记录';
-    btn.setAttribute('aria-expanded', String(open));
-  }
-  $('#view-interview').classList.toggle('records-open', open);
-  if (open) chat.scrollTop = chat.scrollHeight;
+function syncChatToggleLabel() {
+  const btn = $('#btn-chat-toggle');
+  const label = $('#chat-toggle-label');
+  if (!btn || !label) return;
+  const expanded = btn.getAttribute('aria-expanded') === 'true';
+  label.textContent = expanded ? '收起记录' : '查看全部记录';
+}
+
+function wireChatToggle() {
+  const btn = $('#btn-chat-toggle');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const wrap = $('#view-interview').querySelector('.chat-wrap');
+    if (!wrap) return;
+    const expanding = wrap.classList.contains('is-collapsed');
+    if (expanding) {
+      state.chatExpanded = true;         // 展开后，消息来了也别自动收
+      wrap.classList.remove('is-collapsed');
+      btn.setAttribute('aria-expanded', 'true');
+      const chat = $('#chat-stream');
+      chat.scrollTop = chat.scrollHeight; // 展开后滚到能看到最新
+    } else {
+      state.chatExpanded = false;
+      wrap.classList.add('is-collapsed');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+    syncChatToggleLabel();
+  });
 }
 
 function setComposerStatus(text) {
@@ -776,8 +822,6 @@ function wireInterview() {
     await saveNow();
     showView('shelf');
   });
-
-  $('#btn-records').addEventListener('click', toggleRecords);
 }
 
 // ---------- 语音识别（ASR）----------
@@ -1396,6 +1440,7 @@ function wireTranscript() {
 function renderDrawer() {
   const has = !!state.current;
   $('#drawer-book-section').hidden = !has;
+  $('#drawer-input-section').hidden = !has;
   if (has) {
     $('#grant-code').textContent = (state.current.auth && state.current.auth.grantCode) || '—';
   }
@@ -1555,6 +1600,7 @@ function wireDrawer() {
     const s = state.current;
     if (!s) return;
     s.person.dialect = dialectSel.value;
+    syncTtsDialect();
     saveNow();
     toast('方言已切到 ' + dialectName(dialectSel.value));
   });
@@ -1985,6 +2031,7 @@ async function boot() {
   wireDrawer();
   wirePhotos();
   wireVoice();
+  wireChatToggle();
   wireInterviewPhotoSwipe();
   buildViewer();
   checkAi();

@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { loadEnv } from './env.mjs';
 import { chatCompletions } from './deepseek.mjs';
 import { transcribe, accentFor } from './xfyun-asr.mjs';
+import { synthesize as xfyunSynthesize, vcnFor, normalizeForDialect } from './xfyun-tts.mjs';
 import { createV1Router } from './api-v1.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -236,6 +237,8 @@ export async function createApp({ envPath = path.join(ROOT, '.env') } = {}) {
       return sendJson(res, 429, { ok: false, code: 'RATE', error: '一分钟里问得太多了，歇一下再来。' });
     }
 
+    // 方言识别走讯飞「方言识别大模型」（星火协议），accent 固定 'mulacc'（202 种方言免切换），
+    // 因此前端传的 dialect 只需用于提示/后续 TTS，识别本身不再逐方言映射。
     let body;
     try {
       body = await readBody(req, 4 * 1024 * 1024);
@@ -315,15 +318,44 @@ export async function createApp({ envPath = path.join(ROOT, '.env') } = {}) {
       return sendJson(res, 413, { ok: false, code: 'TOO_LONG', error: '一句话最多 2000 字，这句太长了' });
     }
 
-    if (!config.ttsUrl) {
+    // 讯飞 TTS 优先（云端，不占本机内存/显卡），本地 Qwen3 兜底。
+    const xfyunReady = Boolean(config.xfAppid && config.xfApiKey && config.xfApiSecret);
+
+    if (!xfyunReady && !config.ttsUrl) {
       return sendJson(res, 503, {
         ok: false,
         code: 'NO_TTS',
-        error: '没配 TTS_URL（.env 里加一行 TTS_URL=http://127.0.0.1:7861/tts）。'
+        error: '没配任何语音服务：.env 里加讯飞三件套（XF_APPID/XF_API_KEY/XF_API_SECRET），或加一行 TTS_URL=http://127.0.0.1:7861/tts。'
       });
     }
 
     try {
+      // 讯飞优先：一次性返回整段合成音频
+      if (xfyunReady) {
+        const dialect = (body && body.dialect) || 'putonghua';
+        const vcn = vcnFor(dialect);
+        const rate = Number(body.rate) || 1.0;
+        // 按方言场合做儿化/口语收敛（只影响 AI 回话，老人原话在浏览器端不变）
+        const shaped = normalizeForDialect(text, dialect);
+        const { wav } = await xfyunSynthesize({
+          appId: config.xfAppid,
+          apiKey: config.xfApiKey,
+          apiSecret: config.xfApiSecret,
+          text: shaped,
+          vcn,
+          speed: rate,           // 讯飞 speed 0.5~2.0；rate 接近 1.0 即正常语速
+          timeoutMs: 30000
+        });
+        res.writeHead(200, {
+          'content-type': 'audio/wav',
+          'content-length': wav.length,
+          'cache-control': 'no-store'
+        });
+        res.end(wav);
+        return log(req, res, 'xfyun-tts/' + Math.round(wav.length / 1024) + 'KB');
+      }
+
+      // 本地 Qwen3 兜底（原逻辑）
       const ttsRes = await fetch(config.ttsUrl, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -369,7 +401,7 @@ export async function createApp({ envPath = path.join(ROOT, '.env') } = {}) {
         code: timedOut ? 'TTS_TIMEOUT' : 'TTS_UNREACHABLE',
         error: timedOut
           ? '配音服务加载太久了（首次要加载模型，稍后再试）。'
-          : '连不上本地配音服务（' + config.ttsUrl + '），先起 tools/qwen3_tts_server.py。'
+          : '语音服务出错了：' + (err.message || '未知错误') + '。'
       });
       return log(req, res, err.name || 'tts network error');
     }

@@ -72,7 +72,23 @@ function ensureMeta(session) {
   if (session.interview.recentRefuse == null) session.interview.recentRefuse = 0;
   if (session.interview.warmTurns == null) session.interview.warmTurns = 0;
   if (session.meta.extChain == null) session.meta.extChain = 0;
+  if (session.meta.breatheCadence == null) session.meta.breatheCadence = 0;
+  if (session.meta.breathePace == null) session.meta.breathePace = BREATHE_PACE;
   return session;
+}
+
+// ---------- 呼吸节奏：这一拍要不要"只接住、不追问" ----------
+// 访谈最怕连珠炮：老人刚说一句有分量的话，马上被追问下一个问题，显得着急。
+// 引擎负责的正是这个"分寸"——它决定哪些回合"不推进、只陪着"。
+const BREATHE_PACE = 3; // 每隔几个实质回合，给一个纯回应拍（不含问题）。
+
+// 该不该歇一拍？规则尽量简单、可预测、可测：
+//   - 头两个实质回合不歇，先把节奏带起来。
+//   - 之后每到 BREATHE_PACE 的节奏点，就歇一拍（这不设随机，避免把访谈结果打乱）。
+function shouldBreathe(session) {
+  const w = session.interview.warmTurns || 0;
+  if (w <= 2) return false;
+  return (session.meta.breatheCadence || 0) >= (session.meta.breathePace || BREATHE_PACE) - 1;
 }
 
 // ---------- 分寸：敏感话题上限 ----------
@@ -265,8 +281,9 @@ export function warmup(session) {
   return pickAndRecord(session, bank.warmups, rng);
 }
 
-// 进访谈时用这个，而不是裸 warmup：先说一句暖场话，再带出第一个具体问题。
-// 这样老人第一句话就有归属，不会掉进"没问就先答"的空档。
+// 进访谈时用这个，而不是裸 warmup：一句访谈式的引领话，再带出第一个具体问题。
+// 引领话只领话题、不摆场景（不端茶、不夸屋里、不寒暄），老人第一句话就有归属，
+// 不会掉进"没问就先答"的空档。opening 里 question 就是 seeded 的第一个问题。
 export function opening(session) {
   ensureMeta(session);
   const rng = rngFor(session);
@@ -345,6 +362,16 @@ export function respond(session, text, { audioId } = {}) {
     text,
     audioId
   });
+
+  // 呼吸拍：该歇就歇。这一拍不追问、只接住——老人刚说的话里有分量，给它留个空。
+  // 引擎只是决定"节奏"，并不生成句子；AI 开着时由 AI 把这段润色成贴心的回应，
+  // 这里给一个"没开 AI 也能接住"的兜底。歇完一拍，下一轮再照常推进。
+  if (shouldBreathe(session)) {
+    session.meta.breatheCadence = 0;
+    const reply = pickAndRecord(session, bank.beatReplies, rng);
+    return { intent, reply, breathe: true };
+  }
+  session.meta.breatheCadence = (session.meta.breatheCadence || 0) + 1;
 
   const ext = (session.meta.extChain || 0) >= 2
     ? null

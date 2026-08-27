@@ -168,11 +168,18 @@
       </div>
 
       <div class="interview-main">
+        <!-- 标题只留一个：进了书，顶上 appbar 就显示书名了，这里不再重复放"和XX聊聊"。
+             这一行留给"没进书却误入访谈"的极端兜底（正常路由不会发生）。 -->
         <h1 class="view__title view__title--interview" id="title-interview" tabindex="-1">访谈</h1>
 
-        <p id="current-line" class="current-line" aria-live="polite"></p>
-
-        <div id="chat-stream" class="chat" aria-live="polite" aria-relevant="additions" aria-label="和老人的对话" hidden></div>
+        <!-- 对话气泡流：语音优先 → 默认收起，只露最新一句；点一下展开全部历史。 -->
+        <div class="chat-wrap">
+          <div id="chat-stream" class="chat" aria-live="polite" aria-relevant="additions" aria-label="和老人的对话"></div>
+          <button id="btn-chat-toggle" class="chat-toggle" type="button" aria-expanded="false" hidden>
+            <span id="chat-toggle-label">查看全部记录</span>
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chevron-r"></use></svg>
+          </button>
+        </div>
 
         <div class="voice-stage">
           <button id="btn-voice" class="btn-voice btn-voice--hero" type="button" aria-label="点一下开始说话" aria-pressed="false">
@@ -183,26 +190,6 @@
           <p id="asr-interim" class="asr-interim" role="status" aria-live="polite" hidden></p>
           <p id="composer-status" class="composer-status" role="status" aria-live="polite"></p>
           <p id="asr-fallback-note" class="field__note" hidden>这台手机或这个浏览器听不了语音，用输入法自带的语音听写，或请家人帮着打字。</p>
-        </div>
-
-        <div class="composer">
-          <div id="text-row" class="text-row" hidden>
-            <label class="sr-only" for="elder-input">老人说的话，或家人替老人敲的字</label>
-            <textarea id="elder-input" class="input input--chat" rows="3" placeholder="在这儿写，或请家人帮着敲字"></textarea>
-            <button id="btn-send" class="btn btn--primary btn--block" type="button">
-              <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"></use></svg>
-              发送
-            </button>
-          </div>
-          <div class="composer__secondary">
-            <button id="btn-records" class="btn btn--ghost btn--sm" type="button" aria-expanded="false">看记录</button>
-            <button id="btn-record" class="btn btn--secondary btn--sm" type="button" aria-label="按住录音，松开保存原声">
-              <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-mic"></use></svg>
-              <span id="record-label">留原声</span>
-            </button>
-            <button id="btn-end" class="btn btn--secondary btn--sm" type="button">结束本次</button>
-          </div>
-          <p id="rec-unsupported" class="field__note" hidden>这台设备或网络环境录不了音（要 https 或本机地址）。用输入法的语音听写就行。</p>
         </div>
       </div>
     </section>
@@ -335,6 +322,26 @@
           添加智能体
         </button>
         <p class="drawer__hint">可本地加入人设配置或自写脚本。只在你这台设备上运行，不上传。</p>
+      </section>
+
+      <section class="drawer__section" id="drawer-input-section" hidden>
+        <h2 class="drawer__label">输入与结束</h2>
+        <div class="field">
+          <label for="elder-input" class="sr-only">老人说的话，或家人替老人敲的字</label>
+          <textarea id="elder-input" class="input input--chat" rows="3" placeholder="在这儿写，或请家人帮着敲字"></textarea>
+          <button id="btn-send" class="btn btn--primary btn--block" type="button">
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chat"></use></svg>
+            发送
+          </button>
+        </div>
+        <div class="drawer__actions">
+          <button id="btn-record" class="btn btn--secondary btn--sm" type="button" aria-label="按住录音，松开保存原声">
+            <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-mic"></use></svg>
+            <span id="record-label">留原声</span>
+          </button>
+          <button id="btn-end" class="btn btn--secondary btn--sm" type="button">结束本次</button>
+        </div>
+        <p id="rec-unsupported" class="field__note" hidden>这台设备或网络环境录不了音（要 https 或本机地址）。用输入法的语音听写就行。</p>
       </section>
 
       <section class="drawer__section" id="drawer-book-section" hidden>

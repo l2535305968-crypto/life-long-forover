@@ -39,21 +39,21 @@ const THEME = {
     wobbleDur: 7,
     replayColor: 'oklch(0.40 0.09 160)',      // 墨绿（再念一遍按钮）
   },
-  // 纸色玻璃 · 靠右（老人）
+  // 深墨绿玻璃 · 靠右（老人）· 深底白字，与 AI 浅底深字一眼分清（WCAG AAA 7:1）
   elder: {
-    background: 'linear-gradient(155deg, oklch(0.975 0.015 85 / 0.94), oklch(0.915 0.022 85 / 0.68) 62%, oklch(0.94 0.022 85 / 0.82))',
+    background: 'linear-gradient(155deg, oklch(0.32 0.06 160 / 0.97), oklch(0.27 0.06 160 / 0.93) 62%, oklch(0.30 0.06 160 / 0.96))',
     edge: [
-      ['0', 'oklch(0.84 0.02 80 / 0.9)'],    // 细线（纸边）
-      ['0.5', 'oklch(0.76 0.12 70 / 0.75)'], // 琥珀微光
-      ['1', 'oklch(0.84 0.02 80 / 0.9)'],
+      ['0', 'oklch(0.42 0.09 160 / 0.9)'],   // 墨绿描边（比底亮一档，白字更清晰）
+      ['0.5', 'oklch(0.76 0.12 70 / 0.6)'],  // 琥珀微光
+      ['1', 'oklch(0.42 0.09 160 / 0.9)'],
     ],
-    strokeWidth: 2.2,
+    strokeWidth: 2.4,
     scaleBase: '1.2',
     scaleValues: '0.6;1.9;0.6',
     baseFrequency: '0.014 0.05',
     flowDur: 11,
     wobbleDur: 8,
-    replayColor: 'oklch(0.46 0.03 45)',      // 次要文字色
+    replayColor: 'oklch(1 0 0 / 0.95)',      // 白（深底上再念一遍按钮）
   },
   // 开场白玻璃 · 通栏 · 更大字号 · 墨绿描边
   warm: {
@@ -92,6 +92,10 @@ const CSS = `
 .glass.msg--ai { background: ${THEME.ai.background}; }
 .glass.msg--elder { background: ${THEME.elder.background}; }
 .glass.msg--warm { background: ${THEME.warm.background}; }
+
+/* 老人气泡深墨绿底：文字、再念一遍按钮一律白色，保证 7:1 对比 */
+.glass.msg--elder .glass__text,
+.glass.msg--elder { color: oklch(1 0 0 / 0.97); }
 
 .glass__art {
   position: absolute;
