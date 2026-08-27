@@ -92,11 +92,21 @@ async function synthesize({ apiKey, text, speaker, explicitDialect, timeoutMs = 
       const body = await res.text().catch(() => '');
       throw new Error('豆包返回 HTTP ' + res.status + ' ' + body.slice(0, 160));
     }
-    // 流式：body 是若干段 JSON 拼接，每段含 "data":"<base64>"。逐行/整串提取所有 data 再合并。
-    const raw = await res.text();
+    // 流式：响应体是若干段 JSON 拼接，每段含 "data":"<base64>"。
+    // 注意：不能直接用 res.text()（Workers 对大 chunked 流式响应可能读不全），
+    // 要用 getReader() 逐块读 + TextDecoder 流式解码，累积全部字节后再解析 base64。
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let raw = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      raw += decoder.decode(value, { stream: true });
+    }
+    raw += decoder.decode(); // 冲刷残留在解码器里的尾部字节
     const segments = [...raw.matchAll(/"data"\s*:\s*"([A-Za-z0-9+/=]+)"/g)];
     if (!segments.length) {
-      throw new Error('豆包未返回音频数据 响应=' + raw.slice(0, 160));
+      throw new Error('豆包未返回音频数据 响应=' + raw.slice(0, 200));
     }
     const b64 = segments.map(m => m[1]).join('');
     return b64ToBytes(b64);
