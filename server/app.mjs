@@ -52,6 +52,9 @@ export async function createApp({ envPath = path.join(ROOT, '.env') } = {}) {
     localAsrUrl: (vars.LOCAL_ASR_URL || '').trim(),
     // TTS_URL 没写用默认地址；写了空串（TTS_URL=）表示明确关掉暖声音
     ttsUrl: vars.TTS_URL == null ? 'http://127.0.0.1:7861/tts' : vars.TTS_URL.trim(),
+    // 暖声音护门 token（.env 配了 TTS_TOKEN 才启用）。Cloudflare 转发时带 x-tts-token，
+    // 校验通过才合成；没配 token 则不校验（兼容本地开发）。
+    ttsToken: (vars.TTS_TOKEN || '').trim(),
     hadFile
   };
 
@@ -297,6 +300,15 @@ export async function createApp({ envPath = path.join(ROOT, '.env') } = {}) {
     const ip = clientIp(req);
     if (rateLimited(ip)) {
       return sendJson(res, 429, { ok: false, code: 'RATE', error: '一分钟里问得太多了，歇一下再来。' });
+    }
+
+    // 暖声音护门：.env 配了 TTS_TOKEN 才启用。Cloudflare 转发时带 x-tts-token 才能合成，
+    // 否则一律拒绝——这样公网 8788 即使被扫到，也只有持有 token 的代理能调用它。
+    if (config.ttsToken) {
+      const got = String(req.headers['x-tts-token'] || '');
+      if (got !== config.ttsToken) {
+        return sendJson(res, 401, { ok: false, code: 'NO_TTS_TOKEN', error: '缺少正确的暖声音访问令牌。' });
+      }
     }
 
     let body;
