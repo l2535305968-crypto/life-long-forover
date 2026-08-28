@@ -281,16 +281,15 @@ export function warmup(session) {
   return pickAndRecord(session, bank.warmups, rng);
 }
 
-// 进访谈时用这个，而不是裸 warmup：一句访谈式的引领话，再带出第一个具体问题。
-// 引领话只领话题、不摆场景（不端茶、不夸屋里、不寒暄），老人第一句话就有归属，
-// 不会掉进"没问就先答"的空档。opening 里 question 就是 seeded 的第一个问题。
+// 进访谈时用这个，而不是裸 warmup：第一句是"认人"——先自然地问一声怎么称呼对方，
+// 不劈头就砸具体问题。问称呼本身就是开场白，老人答了称呼，话题自然就有了下文，
+// 不会掉进"没问就先答"的空档。所以这一句**只有问候/问称呼，不带第一个问题**，
+// 第一个具体问题留在老人回应称呼之后由引擎正常带出。
 export function opening(session) {
   ensureMeta(session);
   const rng = rngFor(session);
   const greeting = pickAndRecord(session, bank.warmups, rng);
-  const q = pickFreshQuestion(session, rng);
-  const text = q ? `${greeting} ${q.text}` : greeting;
-  return { greeting, firstQuestion: q ? q.text : '', text, question: q };
+  return { greeting, firstQuestion: '', text: greeting, question: null };
 }
 
 export function closing(session) {

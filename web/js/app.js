@@ -458,9 +458,9 @@ function enterInterview() {
   renderChat(s);
   refreshChatCollapse();
 
-  // 开场：没有对话时才说。opening() 会先暖场，再带出第一个具体问题，
-  // 并同步在引擎里种下这个问题（有字段归属），老人第一句话就不会掉进
-  // "没问就先答"的空档。它改 session 状态，所以每本书只调一次，
+  // 开场：没有对话时才说。opening() 先做"认人"——自然地问一声怎么称呼对方，
+  // 不劈头砸具体问题。老人回应称呼后，引擎在下一轮正常带出第一个具体问题，
+  // 这样第一句不挤、也不冷冰冰。它改 session 状态，所以每本书只调一次，
   // 用 meta.openingText 记住，避免重进视图时重复种问题。
   if ((s.turns || []).length === 0) {
     if (!s.meta.openingText) {

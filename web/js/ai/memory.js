@@ -61,6 +61,14 @@ export function memoryDigest(session, { maxFields = 6 } = {}) {
   const emph = emphasized(session);
   if (emph) out.push(emph);
 
+  // 名字类字段（人名/地名/乳名）很可能是老人说的音、不一定听准了字。
+  // 别当铁事实复述——用之前拿不准就顺口核一下，别把错的字写进传记。
+  const nameFields = ['babyName', 'importantPerson'];
+  const hasNames = nameFields.some((id) => (session.profile || {})[id] && session.profile[id].length);
+  if (hasNames) {
+    out.push('（这些名字多半是老人说的音，字不一定对。要用就顺着自然核一下，别照搬。）');
+  }
+
   return out.join('\n');
 }
 
