@@ -8,7 +8,9 @@
 // 隐私底线不变：不落盘任何老人说的话，不打印请求正文，日志只有时间、路径、状态码。
 
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, unlink } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEnv } from './env.mjs';
@@ -55,6 +57,9 @@ export async function createApp({ envPath = path.join(ROOT, '.env') } = {}) {
     // 暖声音护门 token（.env 配了 TTS_TOKEN 才启用）。Cloudflare 转发时带 x-tts-token，
     // 校验通过才合成；没配 token 则不校验（兼容本地开发）。
     ttsToken: (vars.TTS_TOKEN || '').trim(),
+    // 「本地工具」能力开关（默认关）。.env 写 ENABLE_TOOLS=1 才开放 /api/v1/tools/*。
+    // 关掉时这些接口返回 404，避免"公网能触发本机脚本"的能力被误开。
+    enableTools: vars.ENABLE_TOOLS === '1' || vars.ENABLE_TOOLS === 'true',
     hadFile
   };
 
@@ -429,6 +434,68 @@ export async function createApp({ envPath = path.join(ROOT, '.env') } = {}) {
     }
   }
 
+  // ---------- 素材上传（手机 → 服务器，供本地工具脚本处理） ----------
+  // 手机端把某个素材文件字节流直接 POST 上来，文件名放 query（?filename=xxx.m4s），
+  // body 是原始文件字节（不是 multipart）。后端流式写盘到 uploads 目录，不吃内存。
+  // 上传目录：ROOT/uploads（即 /opt/renshengzhishu/uploads，由 /api/v1/tools/run 的脚本读取）。
+  const UPLOAD_DIR = path.join(ROOT, 'uploads');
+  // 允许上传的素材类型（B站 DASH 下载产物：分片 m4s + 元数据 json/xml）。
+  const UPLOAD_EXT = new Set(['.m4s', '.json', '.xml']);
+  const UPLOAD_MAX_BYTES = 500 * 1024 * 1024; // 单文件最大 500MB（流式写盘，不占内存）
+
+  async function handleUpload(req, res) {
+    const ip = clientIp(req);
+    if (rateLimited(ip)) {
+      return sendJson(res, 429, { ok: false, code: 'RATE', error: '一分钟里传得太多了，歇一下再来。' });
+    }
+    // 与暖声音一致：.env 配了 TTS_TOKEN 就校验，否则不校验（兼容本地开发）。
+    if (config.ttsToken) {
+      const got = String(req.headers['x-tts-token'] || '');
+      if (got !== config.ttsToken) {
+        return sendJson(res, 401, { ok: false, code: 'NO_TTS_TOKEN', error: '缺少正确的暖声音访问令牌。' });
+      }
+    }
+    // 从 query 取文件名，清洗掉可能破坏路径的字符（防路径穿越写入任意目录）。
+    const urlObj = new URL(req.url, 'http://localhost');
+    const rawName = urlObj.searchParams.get('filename') || '';
+    const safeName = path.basename(String(rawName))
+      .replace(/[^A-Za-z0-9._\u4e00-\u9fa5（()）\s-]/g, '_')
+      .trim();
+    const ext = path.extname(safeName).toLowerCase();
+    if (!safeName || safeName === '.' || !UPLOAD_EXT.has(ext)) {
+      return sendJson(res, 400, { ok: false, code: 'BAD_FILENAME', error: '文件名非法或类型不支持（只收 .m4s / .json / .xml）。' });
+    }
+    // 防止覆盖已有素材时把不同分组搞混；同名直接另存为带序号，不覆盖。
+    let target = path.join(UPLOAD_DIR, safeName);
+    // 若目标已存在，加 "_序号" 避免覆盖（脚本会按序号分组，重名会串组）。
+    const stem = path.basename(safeName, ext);
+    let n = 1;
+    while (true) {
+      try { await readFile(target); } catch { break; } // 不存在即可写
+      target = path.join(UPLOAD_DIR, `${stem}_${n}${ext}`);
+      n += 1;
+      if (n > 200) return sendJson(res, 413, { ok: false, code: 'TOO_MANY', error: '同名文件太多了。' });
+    }
+
+    const ws = createWriteStream(target);
+    let received = 0;
+    let tooBig = false;
+    try {
+      req.on('data', (c) => { received += c.length; if (received > UPLOAD_MAX_BYTES) tooBig = true; });
+      await pipeline(req, ws);
+    } catch (err) {
+      ws.destroy();
+      return sendJson(res, 500, { ok: false, code: 'WRITE_FAIL', error: '写文件失败：' + (err.message || '') });
+    }
+    if (tooBig) {
+      ws.destroy();
+      try { await unlink(target); } catch {}
+      return sendJson(res, 413, { ok: false, code: 'TOO_LARGE', error: '文件太大，最多 ' + Math.round(UPLOAD_MAX_BYTES / 1024 / 1024) + ' MB。' });
+    }
+    sendJson(res, 200, { ok: true, filename: path.basename(target), size: received });
+    return log(req, res, 'upload ' + path.basename(target) + ' ' + Math.round(received / 1024) + 'KB');
+  }
+
   // ---------- 路由 ----------
   const v1 = createV1Router({
     config,
@@ -441,7 +508,9 @@ export async function createApp({ envPath = path.join(ROOT, '.env') } = {}) {
     // SDK v1 接口优先
     if (urlPath.startsWith('/api/v1/')) {
       const handled = await v1(req, res, urlPath);
-      if (handled) return;
+      // handled 表示已响应；若响应头已发出但 handle 返回了 falsy（异常路径），
+      // 也不能再写一次 404，否则会抛 ERR_HTTP_HEADERS_SENT 崩掉整个进程。
+      if (handled || res.headersSent) return;
       sendJson(res, 404, { ok: false, code: 'NOT_FOUND', error: '没有这个 v1 接口' });
       return log(req, res);
     }
@@ -490,6 +559,17 @@ export async function createApp({ envPath = path.join(ROOT, '.env') } = {}) {
         return log(req, res);
       }
       return handleTts(req, res);
+    }
+
+    // ---------- 素材上传（手机传到服务器，供「本地工具」脚本处理） ----------
+    // 手机端 fetch('/api/upload?filename=xxx.m4s', {method:'POST', body:文件字节流})。
+    // 文件名放 query，body 是原始文件字节（不是 multipart），后端流式写盘，不吃内存。
+    if (urlPath === '/api/upload') {
+      if (req.method !== 'POST') {
+        sendJson(res, 405, { ok: false, code: 'METHOD', error: '这个地址只收 POST' });
+        return log(req, res);
+      }
+      return handleUpload(req, res);
     }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {

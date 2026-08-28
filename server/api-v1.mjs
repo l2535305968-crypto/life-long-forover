@@ -17,11 +17,45 @@ import { buildTimeline } from '../web/js/core/timeline.js';
 import { renderTranscript, renderLog } from '../web/js/core/transcript.js';
 import { dialects } from '../web/js/core/dialects.js';
 import { interviewSystemPrompt, turnPrompt, biographyPrompts } from '../web/js/ai/prompt.js';
+import { execFile } from 'node:child_process';
+import { findTool, TOOL_WHITELIST } from './tools.mjs';
 
 const API_VERSION = 1;
 
 export function createV1Router({ config, helpers }) {
   const { sendJson, sendText, readBody, clientIp, log, rateLimited, handleChat, handleAsr } = helpers;
+
+  // ---------- 本地工具执行 ----------
+  // 用 execFile(cmd, argsArray) —— 参数走数组，不经过 shell，杜绝"拼接字符串命令"注入。
+  // 结果 stdout/stderr 截断到 4000 字符，防止脚本刷屏打爆响应。
+  function runTool(tool) {
+    return new Promise((resolve) => {
+      const cap = 4000;
+      const done = (result) => resolve(result);
+      execFile(
+        tool.cmd,
+        tool.args || [],
+        { cwd: tool.workdir || undefined, timeout: tool.timeoutMs || 60000, maxBuffer: 1024 * 1024 },
+        (err, stdout, stderr) => {
+          const out = String(stdout || '');
+          const errText = String(stderr || '');
+          const truncated = (s) => (s.length > cap ? s.slice(0, cap) + '\n…（输出过长已截断）' : s);
+          if (!err) {
+            done({ ok: true, exitCode: 0, stdout: truncated(out), stderr: truncated(errText) });
+          } else {
+            const code = typeof err.code === 'number' ? err.code : (err.killed ? 'TIMEOUT' : 'ERROR');
+            done({
+              ok: false,
+              exitCode: code,
+              stdout: truncated(out),
+              stderr: truncated(errText || err.message || ''),
+              error: err.killed ? '脚本运行超时了' : (err.message || '脚本出错')
+            });
+          }
+        }
+      );
+    });
+  }
 
   // ---------- session 防御性规整：引擎要求的最小形状 ----------
   function sessionErr(msg) {
@@ -280,6 +314,32 @@ export function createV1Router({ config, helpers }) {
       });
     },
 
+    // ---------- 本地工具（智能体 → 交互键 → 跑本机） ----------
+
+    // 列出本机能遥控的脚本白名单（不暴露 cmd/args 细节，只给 id 和名字让前端下拉）。
+    async 'GET /tools/list'(req, res) {
+      sendJson(res, 200, {
+        ok: true,
+        tools: TOOL_WHITELIST.map((t) => ({ id: t.id, name: t.name }))
+      });
+      return log(req, res);
+    },
+
+    // 按 id 触发一个白名单脚本。用 execFile(参数数组) 而非 shell，防命令注入。
+    // 手机只能传 id，cmd/args 全来自白名单，不能任意执行命令。
+    async 'POST /tools/run'(req, res) {
+      const body = await readJson(req, 64 * 1024); // 工具请求体很小
+      const tool = findTool(body && body.id);
+      if (!tool) {
+        sendJson(res, 403, { ok: false, code: 'TOOL_UNKNOWN', error: '没有这个工具。' });
+        return log(req, res);
+      }
+      // 有多个脚本可跑时，允许挂起若干秒；这里默认同步等结果，超时兜底。
+      const result = await runTool(tool);
+      sendJson(res, result.ok ? 200 : 500, result);
+      return log(req, res, result.ok ? `tool ${tool.id} done` : `tool ${tool.id} failed`);
+    },
+
     'POST /chat': handleChat,
     'POST /asr': handleAsr
   };
@@ -288,6 +348,12 @@ export function createV1Router({ config, helpers }) {
   return async function v1(req, res, urlPath) {
     const method = req.method || 'GET';
     const rel = urlPath.slice('/api/v1'.length) || '/';
+    // 「本地工具」默认关闭。未在 .env 设 ENABLE_TOOLS=1 时，/tools/* 一律 404。
+    if (!config.enableTools && rel.startsWith('/tools')) {
+      sendJson(res, 404, { ok: false, code: 'TOOLS_DISABLED', error: '本地工具未开启。在服务端 .env 设 ENABLE_TOOLS=1 才会开放。' });
+      log(req, res);
+      return true; // 已处理，避免上层再补一个 404 造成重复写 headers
+    }
     const key = `${method} ${rel}`;
     const handler = routes[key];
     if (!handler) return false;

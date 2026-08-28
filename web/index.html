@@ -495,11 +495,16 @@
         <select class="input" id="agent-kind" aria-describedby="agent-kind-note">
           <option value="prompt">人设配置（提示词 JSON）</option>
           <option value="script">本地脚本（JS）</option>
+          <option value="tool">工具（在电脑上运行脚本）</option>
         </select>
-        <p class="field__note" id="agent-kind-note" data-helper="人设：只改 AI 的语气与角色；脚本：在页面里运行，可完全接管回话。"></p>
+        <p class="field__note" id="agent-kind-note" data-helper="人设：只改 AI 的语气与角色；脚本：在页面里运行，可完全接管回话；工具：点一个键在电脑上跑脚本。"></p>
       </div>
-      <div class="field">
-        <label for="agent-content">内容</label>
+      <div class="field" id="field-agent-tool" hidden>
+        <label for="agent-tool">选择工具</label>
+        <select class="input" id="agent-tool"></select>
+        <p class="field__note">选一个在你电脑上登记好的脚本，界面会生成一个「运行」键。</p>
+      </div>
+      <div class="field" id="field-agent-content">
         <textarea class="input input--chat" id="agent-content" name="agent-content" rows="7"
           placeholder='人设示例：{"system":"你是一位……","temperature":0.85}'></textarea>
         <p class="field__note" id="agent-content-note"></p>

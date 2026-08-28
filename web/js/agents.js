@@ -80,12 +80,13 @@ export function getActiveAgent() {
   return a;
 }
 
-// 添加智能体。参数：{ name, kind: 'prompt'|'script', content }。校验失败抛错。
-export function addAgent({ name, kind, content }) {
+// 添加智能体。参数：{ name, kind: 'prompt'|'script'|'tool', content, toolId }。校验失败抛错。
+// kind='tool'：本地工具智能体，只登记 { toolId }（对应后端白名单），不存脚本源码、不参与聊天激活。
+export function addAgent({ name, kind, content, toolId }) {
   const cleanName = String(name || '').trim();
   if (!cleanName) throw new Error('给智能体起个名字');
 
-  const a = { id: makeId(), name: cleanName, kind: kind === 'script' ? 'script' : 'prompt' };
+  const a = { id: makeId(), name: cleanName, kind: kind === 'script' ? 'script' : (kind === 'tool' ? 'tool' : 'prompt') };
 
   if (a.kind === 'script') {
     if (!String(content || '').trim()) throw new Error('脚本内容不能为空');
@@ -95,6 +96,10 @@ export function addAgent({ name, kind, content }) {
     if (!compiled || typeof compiled.reply !== 'function') {
       throw new Error('脚本要 return 一个带 reply(ctx) 函数的对象');
     }
+  } else if (a.kind === 'tool') {
+    // 工具型：必须指明后端白名单里的一个工具 id。
+    if (!toolId) throw new Error('请选一个工具');
+    a.toolId = String(toolId);
   } else {
     // prompt 形态：允许直接写一段提示词，或写 JSON {system, model?, temperature?}
     let cfg = content;
@@ -121,7 +126,8 @@ export function addAgent({ name, kind, content }) {
   const list = readAll();
   list.push(a);
   writeAll(list);
-  if (!getActiveAgentId()) setActiveAgentId(a.id); // 第一个加入的自动激活
+  // 只有 prompt / script 参与聊天激活；tool 靠交互键手动触发，不抢占激活位。
+  if (a.kind !== 'tool' && !getActiveAgentId()) setActiveAgentId(a.id);
   return a;
 }
 

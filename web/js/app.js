@@ -1500,6 +1500,41 @@ function syncDialectSelect() {
   $('#set-dialect').value = (s && s.person && s.person.dialect) || 'putonghua';
 }
 
+// 触发一个本机工具智能体的「▶ 运行」交互键。
+// 调后端 POST /api/v1/tools/run（cmd/args 全在后端白名单，这里只传 id）。
+// 运行中按钮转圈禁用，完成后 toast 结果（成功 含输出 / 失败 含日志）。
+async function runTool(toolId, btn) {
+  if (!toolId) { toast('这个工具没登记好', 'error'); return; }
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('is-running');
+    btn.setAttribute('aria-label', '运行中…');
+  }
+  try {
+    const res = await fetch('/api/v1/tools/run', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: toolId })
+    });
+    const data = await res.json().catch(() => ({ ok: false, error: '返回的不是 JSON' }));
+    if (data && data.ok) {
+      const tail = (data.stdout || '').trim().split('\n').filter(Boolean).pop() || '';
+      toast('✅ 运行完成' + (tail ? '：' + tail.slice(0, 40) : ''), 'ok');
+    } else {
+      const err = (data && data.stderr || data && data.error || '').trim();
+      toast('❌ 运行失败：' + (err ? err.slice(-60) : '脚本出错了'), 'error');
+    }
+  } catch (e) {
+    toast('连接不上本机服务：' + (e && e.message || '未知错误'), 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('is-running');
+      btn.setAttribute('aria-label', '运行工具');
+    }
+  }
+}
+
 function renderAgents() {
   const list = $('#agent-list');
   list.replaceChildren();
@@ -1519,7 +1554,17 @@ function renderAgents() {
       tabindex: 0
     });
     row.append(el('span', { class: 'agent-item__name', text: a.name }));
-    row.append(el('span', { class: 'agent-item__kind', text: a.kind === 'script' ? '脚本' : '人设' }));
+    row.append(el('span', { class: 'agent-item__kind', text: a.kind === 'script' ? '脚本' : (a.kind === 'tool' ? '工具' : '人设') }));
+    // 工具型智能体：旁边加一个「▶ 运行」交互键，点了就跑本机脚本。
+    if (a.kind === 'tool') {
+      const runBtn = el('button', { class: 'icon-btn agent-item__run', type: 'button', 'aria-label': '运行 ' + a.name }, iconNode('play'));
+      runBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        runTool(a.toolId, runBtn);
+      });
+      row.append(runBtn);
+    }
     const del = el('button', { class: 'icon-btn', type: 'button', 'aria-label': '删除智能体 ' + a.name }, iconNode('trash'));
     del.addEventListener('click', (e) => {
       e.preventDefault();
@@ -1565,10 +1610,31 @@ function closeDrawer() {
   $('#btn-menu').focus();
 }
 
+// 拉后端白名单，填充"工具"类型的选择下拉。失败时留一个兜底提示。
+async function loadToolOptions() {
+  const sel = $('#agent-tool');
+  sel.replaceChildren();
+  try {
+    const res = await fetch('/api/v1/tools/list');
+    const data = await res.json().catch(() => null);
+    const tools = (data && data.tools) || [];
+    if (!tools.length) {
+      sel.replaceChildren(el('option', { value: '', text: '（电脑上还没登记工具）' }));
+      return;
+    }
+    sel.replaceChildren(
+      ...tools.map((t) => el('option', { value: t.id, text: t.name }))
+    );
+  } catch {
+    sel.replaceChildren(el('option', { value: '', text: '（连不上本机服务）' }));
+  }
+}
+
 function openAgentDialog() {
   $('#agent-name').value = '';
   $('#agent-content').value = '';
   $('#agent-name-note').textContent = '';
+  loadToolOptions(); // 异步拉白名单，填充工具下拉
   updateAgentKindHint();
   $('#dlg-agent').showModal();
   $('#agent-name').focus();
@@ -1578,6 +1644,16 @@ function updateAgentKindHint() {
   const kind = $('#agent-kind').value;
   const note = $('#agent-content-note');
   const ta = $('#agent-content');
+  const toolField = $('#field-agent-tool');
+  const contentField = $('#field-agent-content');
+  if (kind === 'tool') {
+    toolField.hidden = false;
+    contentField.hidden = true;
+    note.textContent = '';
+    return;
+  }
+  toolField.hidden = true;
+  contentField.hidden = false;
   if (kind === 'script') {
     note.textContent = '脚本要 return 一个 { reply(ctx) } 对象。ctx 有 elderText、history、engineReply、callChat 等。';
     ta.placeholder = 'return {\n  reply: async (ctx) => "……",\n}';
@@ -1610,6 +1686,22 @@ function wireAgentDialog() {
     if (!name) {
       toast('给智能体起个名字', 'error');
       $('#agent-name').focus();
+      return;
+    }
+    if (kind === 'tool') {
+      const toolId = $('#agent-tool').value;
+      if (!toolId) {
+        toast('先选一个工具，或先在电脑上登记工具', 'error');
+        return;
+      }
+      try {
+        addAgent({ name, kind, toolId });
+        $('#dlg-agent').close();
+        renderAgents();
+        toast('工具已加入，点「运行」键使用');
+      } catch (err) {
+        toast((err && err.message) || '没加入成功', 'error');
+      }
       return;
     }
     if (!content.trim()) {

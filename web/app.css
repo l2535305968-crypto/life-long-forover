@@ -1096,6 +1096,10 @@ body.no-scroll { overflow: hidden; }
 }
 .agent-item .icon-btn { width: 2.5rem; height: 2.5rem; flex: none; }
 .agent-empty { font-size: var(--text-meta); color: var(--color-muted); }
+/* 工具型智能体的「运行」键 */
+.agent-item__run { color: var(--color-success); }
+.agent-item__run.is-running { opacity: 0.6; cursor: wait; animation: agent-run-pulse 1s ease-in-out infinite; }
+@keyframes agent-run-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
 
 /* ---- 访谈：中央语音舞台 ---- */
 .view__head--interview { margin-bottom: var(--space-3); }
