@@ -164,7 +164,10 @@ h2 { font-size: var(--text-h2); line-height: 1.3; font-weight: 700; }
   border-radius: var(--radius-pill);
   font-size: var(--text-base);
   text-decoration: none;
-  transform: translateY(-200%);
+  /* 隐藏时要彻底推出视口：只 -200% 不够——它 top:72px、高约56px，
+     -200% 只上移112px，底部会露出16px的深色圆角条（就是左上角那条"黑边"）。
+     用 -100vh 永远等于整个视口高度，任何机型都藏得干净。 */
+  transform: translateY(-100vh);
   transition: transform var(--dur-200) var(--ease-out);
 }
 .skip-link:focus-visible { transform: translateY(0); }
