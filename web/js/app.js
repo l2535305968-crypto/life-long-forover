@@ -43,7 +43,8 @@ const state = {
   aiSpeaking: false,      // AI 正在念话，绝不开麦
   aiSeq: 0,               // 念话序号，防旧的 onEnd 干扰
   asrRetryTimer: null,
-  hasAsr: false,          // /api/health 告知服务端是否配了讯飞 Key
+  hasAsr: false,          // /api/health 告知服务端讯飞识别链路是否可用
+  forceBrowserAsr: false, // 讯飞隧道网络失败后，暂时只走浏览器识别（普通话），识别成功即撤销
   asrFallbackReason: null, // 'env'（环境不行，可被 health 恢复）| 'runtime'（运行期出错）
   asrAborted: false,      // 手动丢弃本句（讯飞 abort 后仍可能回调 onFinal，用它挡掉）
   chatExpanded: false     // 对话区是否被用户手动展开（展开后新消息不再自动收）
@@ -910,9 +911,10 @@ function startListening() {
     onEnd: () => { if (gen !== asrGen) return; handleAsrEnd(); }
   };
 
-  // 按 hasAsr 选识别器：服务端讯飞优先（安卓/微信/方言都能用），否则浏览器内置，都没有则回退
+  // 按 hasAsr 选识别器：服务端讯飞优先（安卓/微信/方言都能用），否则浏览器内置，都没有则回退。
+  // 若刚网络失败被降到浏览器（forceBrowserAsr），本次先走浏览器，避免反复撞不通的隧道。
   let rec = null;
-  if (state.hasAsr) {
+  if (state.hasAsr && !state.forceBrowserAsr) {
     rec = createXfyunRecognizer({ dialect: (s.person && s.person.dialect) || 'putonghua', ...callbacks });
   } else if (asrSupported()) {
     rec = createRecognizer({ lang: asrLang(s.person && s.person.dialect), ...callbacks });
@@ -966,6 +968,8 @@ function handleAsrEnd() {
 
 function handleAsrFinal(text) {
   clearTimeout(state.asrRetryTimer);
+  // 识别成功：撤掉浏览器降级标记，下句回到优先讯飞（方言）再试。
+  state.forceBrowserAsr = false;
   $('#asr-interim').hidden = true;
   $('#asr-interim').textContent = '';
   if (state.asrAborted) {
@@ -996,10 +1000,21 @@ function handleAsrError(code) {
       }, 900);
     }
   } else if (code === 'network') {
-    // 服务端 / 讯飞出问题：提示用输入法听写或打字，并回退手写
-    setComposerStatus('语音识别暂时不通，用输入法听写或打字。');
-    toast('语音识别暂时不通，用输入法听写或打字', 'error');
-    setVoiceFallback('runtime');
+    // 服务端 / 讯飞隧道不通。别急着把语音整个关掉：如果浏览器自己也能识别（普通话），
+    // 就降级到浏览器识别，老人还能出声；实在不行才回退手写。
+    if (asrSupported()) {
+      setComposerStatus('方言识别暂时不通，先用普通话听，你继续说就行。');
+      state.forceBrowserAsr = true;
+      if (state.autoListen) {
+        state.asrRetryTimer = setTimeout(() => {
+          if (state.autoListen && !state.asrActive && !state.sending && !state.aiSpeaking && !ttsSpeaking()) startListening();
+        }, 900);
+      }
+    } else {
+      setComposerStatus('语音识别暂时不通，用输入法听写或打字。');
+      toast('语音识别暂时不通，用输入法听写或打字', 'error');
+      setVoiceFallback('runtime');
+    }
   } else if (code === 'aborted') {
     // 主动 abort（长按换句 / 取消）产生的 aborted，不是环境问题，静默忽略
   } else {

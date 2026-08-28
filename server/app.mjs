@@ -240,6 +240,16 @@ export async function createApp({ envPath = path.join(ROOT, '.env') } = {}) {
       return sendJson(res, 429, { ok: false, code: 'RATE', error: '一分钟里问得太多了，歇一下再来。' });
     }
 
+    // 与暖声音一致：.env 配了 TTS_TOKEN 就校验，否则不校验（兼容本地开发）。
+    // Cloudflare Pages 的 /api/asr 代理转发时替浏览器补 x-tts-token，
+    // 这样公网隧道上的 /api/asr 也只有持令牌的代理能调用，不会被扫到滥用讯飞额度。
+    if (config.ttsToken) {
+      const got = String(req.headers['x-tts-token'] || '');
+      if (got !== config.ttsToken) {
+        return sendJson(res, 401, { ok: false, code: 'NO_TTS_TOKEN', error: '缺少正确的暖声音访问令牌。' });
+      }
+    }
+
     // 方言识别走讯飞「方言识别大模型」（星火协议），accent 固定 'mulacc'（202 种方言免切换），
     // 因此前端传的 dialect 只需用于提示/后续 TTS，识别本身不再逐方言映射。
     let body;

@@ -7,9 +7,11 @@ export async function onRequestGet(context) {
     JSON.stringify({
       ok: true,
       hasKey: Boolean((env.DEEPSEEK_API_KEY || '').trim()),
-      hasAsr: Boolean(
-        (env.XF_APPID || '').trim() && (env.XF_API_KEY || '').trim() && (env.XF_API_SECRET || '').trim()
-      ),
+      // 语音识别：现在也走"Pages /api/asr 代理 → cloudflared 隧道 → 阿里云 8788 → 讯飞"这条链，
+      // 与暖声音 TTS 同一套后端（服务器已实现 handleAsr → xfyun-asr.mjs，方言用 accent='mulacc'）。
+      // 所以只要配了 RSZ_TTS_TOKEN（能证明隧道+服务器活着，即 hasTts），/api/asr 代理就能用，
+      // 前端就会优先选讯飞识别（安卓/微信/方言都能用）。讯飞三件套 Key 只存在服务器 .env，Pages 不放。
+      hasAsr: Boolean((env.RSZ_TTS_TOKEN || '').trim()),
       // 暖声音：Pages 上 /api/tts 反向代理到阿里云 ECS 的讯飞 TTS。
       // 配齐 RSZ_TTS_TOKEN 即视为可用；前端 tts.js 会优先走它，失败才降级浏览器机器音。
       hasTts: Boolean((env.RSZ_TTS_TOKEN || '').trim()),
