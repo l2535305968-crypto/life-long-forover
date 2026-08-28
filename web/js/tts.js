@@ -8,6 +8,8 @@
 //
 // 上层用法不变：speak(text, { rate, onEnd }) / stop() / available() / speaking()。
 
+import { withTokenHeaders } from './token.js';
+
 let zhVoice = null;
 let warmEnabled = false;   // /api/health 说 hasTts 为真
 let warmProbeState = 'idle'; // idle | probing | done
@@ -54,7 +56,7 @@ async function speakWarm(text, opts = {}) {
   try {
     const res = await fetch('/api/tts', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: withTokenHeaders({ 'content-type': 'application/json' }),
       // dialect 让服务端按这本书的方言做儿化/口吻收敛（见 server/xfyun-tts.mjs normalizeForDialect）
       body: JSON.stringify({ text, dialect: warmDialect, rate: opts.rate != null ? opts.rate : 0.95 })
     });

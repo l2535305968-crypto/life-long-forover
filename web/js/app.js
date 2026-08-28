@@ -23,6 +23,7 @@ import { createBackground } from './fx/background.js';
 import { makeGlassBubble } from './fx/glass.js';
 import { createDissolveStage } from './fx/dissolve.js';
 import { asrSupported, asrLang, createRecognizer, createXfyunRecognizer } from './asr.js';
+import { getFamilyToken, setFamilyToken, withTokenHeaders } from './token.js';
 
 // ---------- 状态 ----------
 const state = {
@@ -1493,6 +1494,9 @@ function renderDrawer() {
   syncDialectSelect();
   applyTyping();
   renderAgents();
+  // 家庭令牌：开后抽屉时回填当前值（只读源是 localStorage）
+  const ft = $('#family-token');
+  if (ft && ft.value !== getFamilyToken()) ft.value = getFamilyToken();
 }
 
 function syncDialectSelect() {
@@ -1513,7 +1517,7 @@ async function runTool(toolId, btn) {
   try {
     const res = await fetch('/api/v1/tools/run', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: withTokenHeaders({ 'content-type': 'application/json' }),
       body: JSON.stringify({ id: toolId })
     });
     const data = await res.json().catch(() => ({ ok: false, error: '返回的不是 JSON' }));
@@ -1615,7 +1619,7 @@ async function loadToolOptions() {
   const sel = $('#agent-tool');
   sel.replaceChildren();
   try {
-    const res = await fetch('/api/v1/tools/list');
+    const res = await fetch('/api/v1/tools/list', { headers: withTokenHeaders() });
     const data = await res.json().catch(() => null);
     const tools = (data && data.tools) || [];
     if (!tools.length) {
@@ -1734,7 +1738,7 @@ async function uploadOne(file, label) {
   label.textContent = '上传中 ' + file.name + ' …';
   const res = await fetch('/api/upload?filename=' + encodeURIComponent(file.name), {
     method: 'POST',
-    headers: { 'content-type': file.type || 'application/octet-stream' },
+    headers: withTokenHeaders({ 'content-type': file.type || 'application/octet-stream' }),
     body: file // Blob，浏览器直接流式读，不占内存
   });
   const data = await res.json().catch(() => ({ ok: false, code: 'BAD_JSON', error: '返回的不是 JSON' }));
@@ -1754,7 +1758,7 @@ async function wireSynthSection() {
 
   // 服务端是否开了「本地工具」：连一下白名单，通了才让用这个区。
   try {
-    const res = await fetch('/api/v1/tools/list');
+    const res = await fetch('/api/v1/tools/list', { headers: withTokenHeaders() });
     if (res.ok) {
       const data = await res.json().catch(() => ({ tools: [] }));
       const tools = (data && data.tools) || [];
@@ -1800,7 +1804,7 @@ async function wireSynthSection() {
       // 全部传完，拿合成工具的 id（白名单第一个；找不到就用约定 id）。
       let toolId = 'bilibili-merge';
       try {
-        const r = await fetch('/api/v1/tools/list');
+        const r = await fetch('/api/v1/tools/list', { headers: withTokenHeaders() });
         const d = await r.json().catch(() => ({ tools: [] }));
         const tools = (d && d.tools) || [];
         const hit = tools.find((t) => t.id === 'bilibili-merge' || /bilibili|合成/.test(t.name));
@@ -1851,6 +1855,16 @@ function wireDrawer() {
   $('#set-typing').addEventListener('change', (e) => {
     setTypingEnabled(e.target.checked);
   });
+
+  // 家庭令牌：保存到 localStorage，改完立即对后续请求生效。
+  const ftInput = $('#family-token');
+  if (ftInput) {
+    ftInput.value = getFamilyToken();
+    ftInput.addEventListener('change', () => {
+      setFamilyToken(ftInput.value);
+      toast(ftInput.value ? '家庭令牌已保存' : '已清空家庭令牌（改用 Cloudflare）');
+    });
+  }
 
   wireBookActions();
   wireAgentDialog();

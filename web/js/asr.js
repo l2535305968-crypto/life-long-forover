@@ -10,6 +10,7 @@
 // 上层 UI 用 asrSupported() / hasXfyun() 挑，接口一致，都是"说一句 → 给回这一句"。
 
 import { blobToPcm16Base64 } from './pcm.js';
+import { withTokenHeaders } from './token.js';
 
 export function asrSupported() {
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -27,7 +28,7 @@ export function asrLang(dialectId) {
 export async function transcribeViaXfyun(pcmBase64, dialect) {
   const res = await fetch('/api/asr', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: withTokenHeaders({ 'content-type': 'application/json' }),
     body: JSON.stringify({ audio: pcmBase64, dialect })
   });
   const data = await res.json().catch(() => ({ ok: false }));

@@ -324,6 +324,16 @@
         <p class="drawer__hint">可本地加入人设配置或自写脚本。只在你这台设备上运行，不上传。</p>
       </section>
 
+      <section class="drawer__section">
+        <h2 class="drawer__label">家庭令牌</h2>
+        <div class="field">
+          <label for="family-token">访问令牌</label>
+          <input class="input" id="family-token" type="text" maxlength="64" autocomplete="off"
+            placeholder="与服务器 .env 的 TTS_TOKEN 一致" aria-describedby="family-token-note">
+          <p class="field__note" id="family-token-note" data-helper="手机直连服务器时用它通过语音/上传/工具鉴权。留空则用 Cloudflare（自动带令牌）。填一次即可，存在本机。">手机直连服务器时用它通过语音/上传/工具鉴权。留空则用 Cloudflare（自动带令牌）。</p>
+        </div>
+      </section>
+
       <section class="drawer__section" id="section-synthesize">
         <h2 class="drawer__label">素材合成</h2>
         <p class="drawer__hint">把 B站下载的那个文件夹整个选上来（video/audio 分片在里面），上传后服务器会按文件名分组，自动合成成一个 MP4。</p>
