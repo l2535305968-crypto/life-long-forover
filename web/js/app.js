@@ -51,6 +51,10 @@ const state = {
 };
 
 // ---------- 小工具 ----------
+// 开场白版本号：改版时 +1，旧书（版本低于当前）会重新生成开场白，避免"改版前建的书"
+// 一直沿用旧的"说明目的/劈头砸问题"开场。新书直接带上当前版本，正常走一次生成。
+const OPENING_VERSION = 2;
+
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -463,9 +467,13 @@ function enterInterview() {
   // 这样第一句不挤、也不冷冰冰。它改 session 状态，所以每本书只调一次，
   // 用 meta.openingText 记住，避免重进视图时重复种问题。
   if ((s.turns || []).length === 0) {
-    if (!s.meta.openingText) {
+    // openingText 为空，或这本书是改版前建的（版本低于当前）→ 重新生成开场白。
+    // 旧书用新逻辑更新，不再沿用"说明目的/劈头砸问题"的老开场。
+    const oldOpen = (s.meta.openingVersion || 1) < OPENING_VERSION;
+    if (!s.meta.openingText || oldOpen) {
       const o = opening(s);
       s.meta.openingText = o && o.text ? o.text : '咱们随便聊聊，想到哪儿说到哪儿。';
+      s.meta.openingVersion = OPENING_VERSION;
       saveSoon();
     }
     appendWarm(s.meta.openingText);
