@@ -1101,6 +1101,27 @@ body.no-scroll { overflow: hidden; }
 .agent-item__run.is-running { opacity: 0.6; cursor: wait; animation: agent-run-pulse 1s ease-in-out infinite; }
 @keyframes agent-run-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
 
+/* ---- 素材合成（上传 B站分片到服务器） ---- */
+.upload-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+  padding: 0;
+  list-style: none;
+  max-height: 9rem;
+  overflow-y: auto;
+}
+.upload-list__item {
+  font-size: var(--text-meta);
+  color: var(--color-ink);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-s);
+  background: var(--color-paper-2);
+  overflow-wrap: anywhere;
+}
+
 /* ---- 访谈：中央语音舞台 ---- */
 .view__head--interview { margin-bottom: var(--space-3); }
 

@@ -1721,6 +1721,110 @@ function wireAgentDialog() {
   });
 }
 
+// ---------- 素材合成（手机选 B站分片 → 上传服务器 → 自动合成） ----------
+// 交互：选多个 .m4s/.json/.xml → 逐个 POST /api/upload?filename=xxx（body 是文件字节流）
+//       → 全部传完 → 拉白名单拿工具 id → 调 runTool 触发「B站视频合成」。
+// 上传用顺序逐个传（大文件并行会挤爆隧道），每个文件成功后按钮显示进度。
+function renderSynthSection() {
+  // 只有戴着「工具」能力(服务端)时才显示；连不上或没开 ENABLE_TOOLS 就藏起来。
+  $('#section-synthesize').hidden = true;
+}
+
+async function uploadOne(file, label) {
+  label.textContent = '上传中 ' + file.name + ' …';
+  const res = await fetch('/api/upload?filename=' + encodeURIComponent(file.name), {
+    method: 'POST',
+    headers: { 'content-type': file.type || 'application/octet-stream' },
+    body: file // Blob，浏览器直接流式读，不占内存
+  });
+  const data = await res.json().catch(() => ({ ok: false, code: 'BAD_JSON', error: '返回的不是 JSON' }));
+  if (!res.ok || !data || !data.ok) {
+    throw new Error((data && (data.error || data.code)) || ('上传失败 HTTP ' + res.status));
+  }
+}
+
+async function wireSynthSection() {
+  const pickBtn = $('#btn-pick-m4s');
+  const fileInput = $('#file-m4s');
+  const list = $('#m4s-list');
+  const goBtn = $('#btn-upload-synth');
+  const goLabel = $('#btn-upload-synth-label');
+  const note = $('#synth-note');
+  let files = [];
+
+  // 服务端是否开了「本地工具」：连一下白名单，通了才让用这个区。
+  try {
+    const res = await fetch('/api/v1/tools/list');
+    if (res.ok) {
+      const data = await res.json().catch(() => ({ tools: [] }));
+      const tools = (data && data.tools) || [];
+      // 有 bilibili 合成工具才展示；没有就整个区藏掉（即便服务端开了工具，也可能没登记合成）。
+      if (tools.some((t) => t.id === 'bilibili-merge' || /bilibili|合成/.test(t.name))) {
+        $('#section-synthesize').hidden = false;
+      }
+    }
+  } catch {
+    // 连不上就算了，区保持隐藏
+  }
+
+  pickBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    // folder 选择时 input.files 会带目录树里所有文件；只留 B站 素材（m4s/json/xml）。
+    files = Array.from(fileInput.files || []).filter((f) => /\.(m4s|json|xml)$/i.test(f.name));
+    if (!files.length) {
+      list.replaceChildren(el('li', { class: 'upload-list__item', text: '这个文件夹里没有 .m4s/.json/.xml 素材' }));
+      list.hidden = false;
+      goBtn.disabled = true;
+      goLabel.textContent = '上传并合成';
+      return;
+    }
+    list.replaceChildren(
+      ...files.map((f) => el('li', { class: 'upload-list__item', text: f.webkitRelativePath || f.name }))
+    );
+    list.hidden = false;
+    goBtn.disabled = false;
+    note.hidden = true;
+    goLabel.textContent = '上传并合成（' + files.length + ' 个文件）';
+  });
+
+  goBtn.addEventListener('click', async () => {
+    if (!files.length) return;
+    goBtn.disabled = true;
+    pickBtn.disabled = true;
+    goLabel.textContent = '上传中…';
+    try {
+      for (let i = 0; i < files.length; i++) {
+        await uploadOne(files[i], goLabel);
+        goLabel.textContent = '上传中 ' + (i + 1) + '/' + files.length + ' …';
+      }
+      // 全部传完，拿合成工具的 id（白名单第一个；找不到就用约定 id）。
+      let toolId = 'bilibili-merge';
+      try {
+        const r = await fetch('/api/v1/tools/list');
+        const d = await r.json().catch(() => ({ tools: [] }));
+        const tools = (d && d.tools) || [];
+        const hit = tools.find((t) => t.id === 'bilibili-merge' || /bilibili|合成/.test(t.name));
+        if (hit && hit.id) toolId = hit.id;
+      } catch { /* 保持默认 */ }
+      goLabel.textContent = '已上传，正在合成…';
+      await runTool(toolId, goBtn); // 复用工具型智能体的「运行」逻辑（成功/失败都有 toast）
+      goLabel.textContent = '完成';
+      files = [];
+      fileInput.value = '';
+      list.replaceChildren();
+      list.hidden = true;
+      goBtn.disabled = true;
+      pickBtn.disabled = false;
+      note.hidden = true;
+    } catch (err) {
+      toast('上传失败：' + (err && err.message || '未知错误'), 'error');
+      goLabel.textContent = '重试上传';
+      pickBtn.disabled = false;
+      goBtn.disabled = !files.length;
+    }
+  });
+}
+
 function wireDrawer() {
   $('#btn-menu').addEventListener('click', openDrawer);
   $('#btn-drawer-close').addEventListener('click', closeDrawer);
@@ -1750,6 +1854,7 @@ function wireDrawer() {
 
   wireBookActions();
   wireAgentDialog();
+  wireSynthSection();
 }
 
 function wireBookActions() {

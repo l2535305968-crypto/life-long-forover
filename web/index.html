@@ -324,6 +324,22 @@
         <p class="drawer__hint">可本地加入人设配置或自写脚本。只在你这台设备上运行，不上传。</p>
       </section>
 
+      <section class="drawer__section" id="section-synthesize">
+        <h2 class="drawer__label">素材合成</h2>
+        <p class="drawer__hint">把 B站下载的那个文件夹整个选上来（video/audio 分片在里面），上传后服务器会按文件名分组，自动合成成一个 MP4。</p>
+        <button id="btn-pick-m4s" class="btn btn--secondary btn--sm btn--block" type="button">
+          <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-upload"></use></svg>
+          选择 B站素材文件夹
+        </button>
+        <input id="file-m4s" type="file" accept=".m4s,.json,.xml" multiple webkitdirectory hidden>
+        <ul id="m4s-list" class="upload-list" hidden></ul>
+        <button id="btn-upload-synth" class="btn btn--primary btn--sm btn--block" type="button" disabled>
+          <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-play"></use></svg>
+          <span id="btn-upload-synth-label">上传并合成</span>
+        </button>
+        <p id="synth-note" class="field__note" hidden></p>
+      </section>
+
       <section class="drawer__section" id="drawer-input-section" hidden>
         <h2 class="drawer__label">输入与结束</h2>
         <div class="field">
