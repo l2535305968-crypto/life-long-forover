@@ -6,6 +6,10 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Cloudflare Wrangler 本地构建产物与状态缓存（含账号凭据缓存，绝不进库）
+.wrangler/
+.wrangler.tmp/
+
 # 本地 conda 环境与下载缓存（很大，不进版本库）
 .conda-envs/
 .conda-pkgs/

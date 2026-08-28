@@ -34,6 +34,7 @@ const state = {
   sending: false,
   warmedThisLoad: false,  // 这次打开书是否已经念过开场白
   saving: false,
+  pendingDelete: null,    // 正在等删除确认的那本书（书架× / 访谈都写这里）
   // 语音优先（ASR）
   autoListen: false,      // 大麦克风的自动听循环是否开启
   asrActive: false,       // 识别器正在运行
@@ -349,6 +350,28 @@ function makeBookCard(b) {
     }),
     el('span', { class: 'book-card__meta', text: storyLine })
   );
+  // 删除按钮：嵌在卡片（也是 button）里，故用 role="button" 的 <span>，
+  // 并 stopPropagation 防止冒泡触发出卡片本身的"打开"。
+  const del = el('span', {
+    class: 'book-card__del',
+    role: 'button',
+    tabindex: '0',
+    title: '删除《' + name + '》',
+    'aria-label': '删除《' + name + '》'
+  });
+  del.append(iconNode('trash'));
+  del.addEventListener('click', (e) => {
+    e.stopPropagation();
+    askDeleteBook(b);
+  });
+  del.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      askDeleteBook(b);
+    }
+  });
+  card.append(del);
   card.addEventListener('click', () => openBook(b.id));
   return card;
 }
@@ -1650,33 +1673,49 @@ function wireBookActions() {
     }
   });
 
+  // 访谈内"删除这本书"：目标就是当前打开的书
   $('#btn-delete').addEventListener('click', () => {
     const s = state.current;
     if (!s) return;
-    $('#delete-name').textContent = (s.person && s.person.name) || '这本书';
-    $('#dlg-delete').showModal();
+    askDeleteBook(s);
   });
 
   $('#btn-delete-go').addEventListener('click', async () => {
-    const s = state.current;
+    const s = state.pendingDelete;
     if (!s) return;
     const btn = $('#btn-delete-go');
+    const deletingCurrent = state.current && state.current.id === s.id;
     setLoading(btn, '正在删除…');
     try {
       await deleteBook(s.id);
       $('#dlg-delete').close();
-      state.current = null;
-      state.pendingAudioId = null;
-      $('#appbar-book').hidden = true;
+      state.pendingDelete = null;
       clearLoading(btn);
-      closeViewer();
-      closeDrawer();
-      showView('shelf');
+      // 删的是"当前打开的书"：清掉现场，回书架。
+      // 删的是"书架上的其他书"：留在原地，只刷新书架。
+      if (deletingCurrent) {
+        state.current = null;
+        state.pendingAudioId = null;
+        $('#appbar-book').hidden = true;
+        closeViewer();
+        closeDrawer();
+        showView('shelf');
+      } else {
+        renderShelf();
+      }
     } catch {
       clearLoading(btn);
       toast('删除没成功，再试一次', 'error');
     }
   });
+}
+
+// 弹出删除确认框。书架× 和访谈"删除这本书"共用这里。
+function askDeleteBook(b) {
+  if (!b) return;
+  state.pendingDelete = b;
+  $('#delete-name').textContent = (b.person && b.person.name) || '这本书';
+  $('#dlg-delete').showModal();
 }
 
 // ---------- 照片 ----------

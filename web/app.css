@@ -450,6 +450,25 @@ dialog::backdrop { background: oklch(0.2 0.02 40 / 0.55); }
 .book-card__name { font-size: var(--text-h2); font-weight: 700; }
 .book-card__meta { font-size: var(--text-base); color: var(--color-muted); }
 
+/* 卡片右上角删除×：不占文字布局，触控热区 ≥44px，视觉只露小图标 */
+.book-card { position: relative; }
+.book-card__del {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;                 /* 44px 触控目标 */
+  height: 2.75rem;
+  border-radius: var(--radius-m);
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.book-card__del .ic { width: 1.25rem; height: 1.25rem; }
+.book-card__del:hover { color: var(--color-error); background: var(--color-error-tint); }
+.book-card__del:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
 @media (hover: hover) and (pointer: fine) {
   .book-card:hover { transform: translateY(-2px); }
 }
@@ -726,6 +745,22 @@ dialog::backdrop { background: oklch(0.2 0.02 40 / 0.55); }
 .card--danger .card__title { color: var(--color-error); }
 
 .grant-row { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+
+/* 设置抽屉里「导出加密/导入/导出对话记录/导出日志」按钮组：2×2 网格排布，文字可换行不重叠 */
+.drawer__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));   /* 恒两列，窄屏也不挤成竖排 */
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+.drawer__actions .btn {
+  white-space: normal;          /* 允许长文字换行，避免 nowrap 撑破重叠 */
+  text-align: center;
+  min-width: 0;
+  padding-inline: var(--space-2);
+  font-size: var(--text-btn);   /* 用稍小的按钮字号，长词也能放得下 */
+  line-height: 1.15;
+}
 .grant-code {
   font-family: var(--font-sans);
   font-size: var(--text-h1);
@@ -1031,9 +1066,6 @@ body.no-scroll { overflow: hidden; }
 .grant-row__label { font-size: var(--text-meta); color: var(--color-muted); }
 .grant-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .grant-row .grant-code { font-size: var(--text-h2); }
-
-.drawer__actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
-.drawer__actions .btn { flex: 1 1 0; }
 
 /* 智能体列表 */
 .agent-list { display: flex; flex-direction: column; gap: var(--space-2); }
