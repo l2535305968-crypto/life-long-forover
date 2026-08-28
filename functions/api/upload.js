@@ -15,8 +15,10 @@
 //
 // 护门：token（RSZ_TTS_TOKEN）与 tts.js 是同一个。上传/合成/配音共用一个令牌，简单够用。
 
-// 上游后端地址。云端生产环境已配置 RSZ_TTS_UPSTREAM = https://tts.xunyiju.com（不带 /api 后缀），
-// 本代理会把 /api/upload + query 拼上去转发。此常量仅作未配置时的兜底。
+// 上游后端地址。云端生产环境已配置 RSZ_TTS_UPSTREAM = https://tts.xunyiju.com/api/tts
+// （cloudflared 固定隧道，工具 tts.js 用的是这个带 /api/tts 后缀的值）。本代理不管它带了
+// 什么路径，一律只取「站点根」再拼上 /api/upload，避免拼成 /api/tts/api/upload 导致 405。
+// 此常量仅作未配置时的兜底。
 const DEFAULT_UPSTREAM = 'https://tts.xunyiju.com';
 
 export async function onRequestPost(context) {
@@ -37,8 +39,12 @@ export async function onRequestPost(context) {
   const filename = url.searchParams.get('filename') || '';
 
   try {
+    // 只取上游的站点根（去掉可能带上的 /api/* 路径前缀），再拼 /api/upload。
+    // 这样无论 RSZ_TTS_UPSTREAM 配的是 https://tts.xunyiju.com 还是
+    // https://tts.xunyiju.com/api/tts，都能正确落到服务器 /api/upload。
+    const root = upstream.replace(/\/+$/, '').replace(/\/api\/.*$/, '');
     // 流式转发：Worker 不 buffer 整个文件，用 request.body 当可读流直接导给上游
-    const up = await fetch(upstream + '/api/upload?filename=' + encodeURIComponent(filename), {
+    const up = await fetch(root + '/api/upload?filename=' + encodeURIComponent(filename), {
       method: 'POST',
       headers: {
         'content-type': (context.request.headers.get('content-type') || 'application/octet-stream'),
