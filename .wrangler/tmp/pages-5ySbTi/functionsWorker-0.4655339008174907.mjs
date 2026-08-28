@@ -86,9 +86,9 @@ async function onRequestGet(context) {
       hasAsr: Boolean(
         (env.XF_APPID || "").trim() && (env.XF_API_KEY || "").trim() && (env.XF_API_SECRET || "").trim()
       ),
-      // 暖声音：Pages 上 /api/tts 用火山·豆包语音合成大模型2.0（HTTP 单向流式）。
-      // 配齐 DOC_API_KEY 即视为可用；前端 tts.js 会优先走它，失败才降级浏览器机器音。
-      hasTts: Boolean((env.DOC_API_KEY || "").trim()),
+      // 暖声音：Pages 上 /api/tts 反向代理到阿里云 ECS 的讯飞 TTS。
+      // 配齐 RSZ_TTS_TOKEN 即视为可用；前端 tts.js 会优先走它，失败才降级浏览器机器音。
+      hasTts: Boolean((env.RSZ_TTS_TOKEN || "").trim()),
       model: env.DEEPSEEK_MODEL || "deepseek-chat",
       secureContextNote: "Cloudflare Pages \u662F https\uFF0C\u9EA6\u514B\u98CE\u3001\u52A0\u5230\u684C\u9762\u90FD\u80FD\u7528",
       time: (/* @__PURE__ */ new Date()).toISOString()
@@ -101,112 +101,16 @@ async function onRequestGet(context) {
 __name(onRequestGet, "onRequestGet");
 
 // api/tts.js
-var RESOURCE_ID = "seed-tts-2.0";
-var SPEECH_RATE = 0;
-var VOICES = {
-  // 柔和亲切，适合陪老人闲聊
-  default: "zh_female_kefunvsheng_uranus_bigtts",
-  // 暖阳女声 2.0
-  // 稍活泼
-  clear: "zh_female_qingxinnvsheng_uranus_bigtts",
-  // 清新女声 2.0
-  sweet: "zh_female_tianmeixiaoyuan_uranus_bigtts"
-  // 甜美小源 2.0
-};
-function voiceFor() {
-  return VOICES.default;
-}
-__name(voiceFor, "voiceFor");
-var REGIONAL_ERHUA = [
-  ["\u4ECA\u513F", "\u4ECA\u5929"],
-  ["\u660E\u513F", "\u660E\u5929"],
-  ["\u6628\u513F", "\u6628\u5929"],
-  ["\u524D\u513F", "\u524D\u5929"],
-  ["\u5929\u513F", "\u5929\u6C14"],
-  ["\u5E72\u6D3B\u513F", "\u5E72\u6D3B"],
-  ["\u597D\u73A9\u513F", "\u597D\u73A9"],
-  ["\u4E00\u70B9\u70B9\u513F", "\u4E00\u70B9\u70B9"],
-  ["\u6709\u70B9\u513F", "\u6709\u70B9"],
-  ["\u90A3\u4F1A\u513F", "\u90A3\u65F6"],
-  ["\u8FD9\u4F1A\u513F", "\u8FD9\u65F6"],
-  ["\u591A\u4F1A\u513F", "\u4EC0\u4E48\u65F6\u5019"],
-  ["\u4E8B\u513F", "\u4E8B"]
-];
-var SOUTHERN = /* @__PURE__ */ new Set(["yue", "wu", "xiang", "min", "gan", "chuanyu", "henan", "sichuan"]);
-function normalizeForDialect(text, dialectId = "putonghua") {
-  const t = String(text || "");
-  if (!t) return "";
-  if (!SOUTHERN.has(dialectId)) return t;
-  let out = t;
-  for (const [from, to] of REGIONAL_ERHUA) {
-    out = out.split(from).join(to);
-  }
-  return out;
-}
-__name(normalizeForDialect, "normalizeForDialect");
-async function synthesize({ apiKey, text, speaker, explicitDialect, timeoutMs = 6e4 }) {
-  const reqid = crypto.randomUUID();
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  const req_params = {
-    text,
-    speaker,
-    audio_params: { format: "mp3", sample_rate: 24e3 },
-    speech_rate: SPEECH_RATE,
-    disable_markdown_filter: true
-  };
-  if (explicitDialect) req_params.explicit_dialect = explicitDialect;
-  try {
-    const res = await fetch("https://openspeech.bytedance.com/api/v3/tts/unidirectional", {
-      method: "POST",
-      headers: {
-        "X-Api-Key": apiKey,
-        "X-Api-Resource-Id": RESOURCE_ID,
-        "X-Api-Request-Id": reqid,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ req_params }),
-      signal: ctrl.signal
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error("\u8C46\u5305\u8FD4\u56DE HTTP " + res.status + " " + body.slice(0, 160));
-    }
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let raw = "";
-    for (; ; ) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      raw += decoder.decode(value, { stream: true });
-    }
-    raw += decoder.decode();
-    const segments = [...raw.matchAll(/"data"\s*:\s*"([A-Za-z0-9+/=]+)"/g)];
-    if (!segments.length) {
-      throw new Error("\u8C46\u5305\u672A\u8FD4\u56DE\u97F3\u9891\u6570\u636E \u54CD\u5E94=" + raw.slice(0, 200));
-    }
-    const b64 = segments.map((m) => m[1]).join("");
-    return b64ToBytes(b64);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-__name(synthesize, "synthesize");
-function b64ToBytes(b64) {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-__name(b64ToBytes, "b64ToBytes");
+var DEFAULT_UPSTREAM = "https://tts.xunyiju.com/api/tts";
 async function onRequestPost3(context) {
   const env = context.env || {};
-  const apiKey = (env.DOC_API_KEY || "").trim();
-  if (!apiKey) {
+  const token = (env.RSZ_TTS_TOKEN || "").trim();
+  const upstream = ((env.RSZ_TTS_UPSTREAM || "").trim() || DEFAULT_UPSTREAM).replace(/\/$/, "");
+  if (!token) {
     return json2(503, {
       ok: false,
-      code: "NO_TTSKEY",
-      error: "\u8C46\u5305\u5927\u6A21\u578B\u672A\u914D\uFF08\u73AF\u5883\u53D8\u91CF DOC_API_KEY\uFF09\uFF0C\u6696\u58F0\u97F3\u4E0D\u53EF\u7528\u3002\u8BF7\u5230 Cloudflare \u9879\u76EE\u8BBE\u7F6E\u91CC\u914D\u7F6E\u3002"
+      code: "NO_TTS_TOKEN",
+      error: "\u6696\u58F0\u97F3\u4EE3\u7406\u672A\u914D\u7F6E\uFF08\u7F3A\u73AF\u5883\u53D8\u91CF RSZ_TTS_TOKEN\uFF09\uFF0C\u8BF7\u5230 Cloudflare \u9879\u76EE\u8BBE\u7F6E\u91CC\u914D\u7F6E\u3002"
     });
   }
   let body;
@@ -217,27 +121,47 @@ async function onRequestPost3(context) {
   }
   const text = body && typeof body.text === "string" ? body.text.trim() : "";
   if (!text) return json2(400, { ok: false, code: "BAD_TEXT", error: "\u7F3A\u5C11 text \u5B57\u6BB5" });
-  if (text.length > 1e3) return json2(413, { ok: false, code: "TOO_LONG", error: "\u4E00\u53E5\u8BDD\u6700\u591A 1000 \u5B57" });
-  const dialect = body && body.dialect || "putonghua";
-  const speaker = voiceFor();
-  const rate = Number(body.rate) || 1;
-  const shaped = normalizeForDialect(text, dialect);
-  const explicitDialect = null;
   try {
-    const bytes = await synthesize({ apiKey, text: shaped, speaker, explicitDialect });
-    return new Response(bytes.buffer, {
+    const up = await fetch(upstream, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        // 替浏览器补 token；浏览器自己碰不到这个值
+        "x-tts-token": token
+      },
+      body: JSON.stringify({
+        text,
+        dialect: body && body.dialect || "putonghua",
+        rate: body && body.rate || 1
+      })
+    });
+    if (up.status !== 200) {
+      let data = null;
+      try {
+        data = await up.json();
+      } catch {
+      }
+      return json2(up.status, {
+        ok: false,
+        code: data && data.code || "UPSTREAM_" + up.status,
+        error: data && data.error || "\u6696\u58F0\u97F3\u670D\u52A1\u8FD4\u56DE HTTP " + up.status
+      });
+    }
+    const ctype = (up.headers.get("content-type") || "audio/wav").toLowerCase();
+    const buf = await up.arrayBuffer();
+    return new Response(buf, {
       status: 200,
       headers: {
-        "content-type": "audio/mpeg",
-        "content-length": bytes.length,
+        "content-type": ctype,
+        "content-length": buf.byteLength,
         "cache-control": "no-store"
       }
     });
   } catch (err) {
     return json2(502, {
       ok: false,
-      code: "TTS_FAIL",
-      error: err && err.message || "\u8BED\u97F3\u5408\u6210\u5931\u8D25"
+      code: "TTS_PROXY_FAIL",
+      error: "\u8FDE\u4E0D\u4E0A\u6696\u58F0\u97F3\u670D\u52A1\u5668\uFF1A" + (err && err.message || "\u672A\u77E5\u9519\u8BEF")
     });
   }
 }
@@ -769,7 +693,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// ../.wrangler/tmp/bundle-gNrAkj/middleware-insertion-facade.js
+// ../.wrangler/tmp/bundle-hl0ASB/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -801,7 +725,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// ../.wrangler/tmp/bundle-gNrAkj/middleware-loader.entry.ts
+// ../.wrangler/tmp/bundle-hl0ASB/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
