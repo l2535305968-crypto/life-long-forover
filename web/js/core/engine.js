@@ -288,7 +288,24 @@ export function warmup(session) {
 export function opening(session) {
   ensureMeta(session);
   const rng = rngFor(session);
-  const greeting = pickAndRecord(session, bank.warmups, rng);
+  // 建书时已经填了称呼（person.name）→ 开场不再"问称呼"，直接用这个称呼打招呼。
+  // 没填称呼的书才走原来那套"问一声怎么称呼"。
+  const name = (session.person && session.person.name || '').trim();
+  let greeting;
+  if (name) {
+    // 动态拼一句"用已知称呼问候"，不写死进库（称呼是变量）。
+    const namedTemplates = [
+      `${name}，咱们慢慢唠，想到哪儿说到哪儿。`,
+      `${name}，今儿个得空，陪您聊聊从前的事儿。`,
+      `${name}，我来看您了。您想起啥，就跟我念叨念叨。`
+    ];
+    greeting = pickAndRecord(session, namedTemplates, rng);
+    // 已知称呼要传给后续 AI，让它别再问、也别瞎定别的称谓。
+    session.meta.addressKnown = name;
+  } else {
+    greeting = pickAndRecord(session, bank.warmups, rng);
+    session.meta.addressKnown = null;
+  }
   return { greeting, firstQuestion: '', text: greeting, question: null };
 }
 

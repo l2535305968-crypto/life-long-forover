@@ -23,11 +23,13 @@ const REFUSE_PHRASES = [
   '没啥好说', '没什么好说', '没得说', '这个不说', '这不说', '不提了'
 ];
 
-// 说不上来 / 记不清的信号。
-const SILENCE_PHRASES = [
-  '忘了', '记不清', '记不得', '记不住', '想不起', '想不起来',
-  '不知道', '说不上来', '说不上', '没印象', '没记住', '不记得', '不好说'
+// 说不上来 / 记不清的强信号——这些词一出，老人就是"这段讲不出来"，该停、该换话头。
+// 用"字根"而非高频词组："我忘记了"含的是"忘记"不是"忘了"，只枚举"忘了"会漏掉最常说的一句。
+// "记不太清""记不清"中间可能插"太/咋/很"，用正则匹配"记不.清"这种变形，别只咬死"记不清"。
+const STRONG_FORGET = [
+  '忘记', '想不起', '想不起来', '想不出', '说不上来', '说不上', '没印象', '不记得', '记不得', '记不住', '记不起'
 ];
+const STRONG_FORGET_RE = /记不.{0,1}清/; // 记不清 / 记不太清 / 记不很清楚
 
 // 只有标点、空白，没有任何实义。
 const PUNCT_ONLY = /^[\s，。！？、；…,\.!?;:~·\u3000]*$/;
@@ -70,9 +72,18 @@ export function looksLikeSilence(text) {
   stripped = stripped.replace(PUNCT_OR_SPACE, '');
   if (!MEANINGFUL.test(stripped)) return true;
 
-  // 长句子里出现"忘了"多半是真的在讲事，短句里出现才是说不上来。
+  // 记不清/说不上来是强信号：无论长短，只要老人说了"我忘记了、记不清、想不起来"，
+  // 就是明确的"这段讲不出来"。这时该停、该换轻松话题，绝不能再追问细节。
+  // 但"忘了"这类偏弱的词在长句里可能是"我忘了不少，可我记得那片地"——还在讲事，
+  // 所以弱信号只在短句（≤10字）里才算沉默，保住那些"边忘边讲"的长回忆。
+  const STRONG_FORGET = ['忘记', '想不起', '想不起来', '想不出', '说不上来', '说不上', '没印象', '不记得', '记不得', '记不住', '记不起'];
+  const strongHit = STRONG_FORGET.some((p) => t.includes(p)) || STRONG_FORGET_RE.test(t);
+  if (strongHit) return true;
   if (t.length <= 10) {
-    for (const p of SILENCE_PHRASES) if (t.includes(p)) return true;
+    // 只吃"忘了、啥都忘、全忘了"这类在短句里明确是"忘了"的说法。
+    if (t.includes('忘了') || t.includes('啥都忘') || t.includes('全忘了') || t.includes('都忘了')) return true;
+    // 出口词弱信号：短句里说"随便/都行/挺好"，多半是敷衍/不愿展开。
+    if (/(随便|都行|差不离|都挺好|还行|也就那样|没啥|没得啥)/.test(t)) return true;
   }
   return false;
 }
